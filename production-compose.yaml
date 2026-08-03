@@ -1,0 +1,63 @@
+x-app-environment: &app-environment
+    APP_NAME: "${APP_NAME:-Laravel}"
+    APP_ENV: production
+    APP_KEY: "${APP_KEY}"
+    APP_DEBUG: "false"
+    APP_URL: "${APP_URL:-http://localhost}"
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: "${LOG_LEVEL:-info}"
+    DB_CONNECTION: pgsql
+    DB_HOST: database
+    DB_PORT: "5432"
+    DB_DATABASE: "${DB_DATABASE:-tutoring}"
+    DB_USERNAME: "${DB_USERNAME:-postgres}"
+    DB_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in Coolify}"
+    SESSION_DRIVER: database
+    CACHE_STORE: database
+    QUEUE_CONNECTION: database
+    FILESYSTEM_DISK: "${FILESYSTEM_DISK:-local}"
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                VITE_APP_NAME: "${APP_NAME:-Laravel}"
+        environment:
+            <<: *app-environment
+            RUN_MIGRATIONS: "true"
+        depends_on:
+            database:
+                condition: service_healthy
+        expose:
+            - "80"
+        volumes:
+            - app-storage:/app/storage/app
+        restart: unless-stopped
+        init: true
+        healthcheck:
+            test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/up"]
+            interval: 15s
+            timeout: 5s
+            retries: 5
+            start_period: 30s
+
+    database:
+        image: postgres:15-alpine
+        environment:
+            POSTGRES_DB: "${DB_DATABASE:-tutoring}"
+            POSTGRES_USER: "${DB_USERNAME:-postgres}"
+            POSTGRES_PASSWORD: "${DB_PASSWORD:?Set DB_PASSWORD in Coolify}"
+        volumes:
+            - postgres-data-v2:/var/lib/postgresql/data
+        restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+            interval: 5s
+            timeout: 5s
+            retries: 10
+            start_period: 15s
+volumes:
+    app-storage:
+    postgres-data-v2:
