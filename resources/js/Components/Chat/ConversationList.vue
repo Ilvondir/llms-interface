@@ -10,6 +10,10 @@ defineProps({
         type: String,
         default: null,
     },
+    canCreate: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 const emit = defineEmits(['select', 'create', 'rename', 'delete']);
@@ -49,7 +53,9 @@ const cancelRename = () => {
     <div class="space-y-0.5">
         <button
             type="button"
-            class="w-full text-left rounded border border-dashed border-gray-300 dark:border-gray-600 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+            class="w-full text-left rounded border border-dashed border-gray-300 dark:border-gray-600 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent dark:disabled:hover:bg-transparent"
+            :disabled="! canCreate"
+            :title="canCreate ? 'Start a new chat' : 'Finish or leave the empty chat first'"
             @click="$emit('create')"
         >
             + New chat

@@ -376,31 +376,31 @@ Uzupełnienie pokrycia testów, throttle, hardening Caddy/timeout pod produkcję
 
 #### Automatyczne
 
-- [x] 3.1 Feature stream + `Http::fake` + `assertStreamed`
-- [x] 3.2 Feature models + `Http::fake`
-- [x] 3.3 Assert payload bez reasoning (`Http::assertSent`)
-- [x] 3.4 Gość wywołuje stream bez auth
-- [x] 3.5 Pint na dirty PHP
+- [x] 3.1 Feature stream + `Http::fake` + `assertStreamed` — 8255570
+- [x] 3.2 Feature models + `Http::fake` — 8255570
+- [x] 3.3 Assert payload bez reasoning (`Http::assertSent`) — 8255570
+- [x] 3.4 Gość wywołuje stream bez auth — 8255570
+- [x] 3.5 Pint na dirty PHP — 8255570
 
 #### Ręczne
 
-- [ ] 3.6 Live LM Studio: stream + models
-- [ ] 3.7 Abort klienta zamyka upstream sensownie
+- [x] 3.6 Live LM Studio: stream + models
+- [x] 3.7 Abort klienta zamyka upstream sensownie
 
 ### Faza 4: Podłączenie UI (stream, picker, stats, błędy)
 
 #### Automatyczne
 
-- [ ] 4.1 Testy Fazy 3 nadal przechodzą
-- [ ] 4.2 `npm run build` sukces
+- [x] 4.1 Testy Fazy 3 nadal przechodzą
+- [x] 4.2 `npm run build` sukces
 
 #### Ręczne
 
-- [ ] 4.3 Tokeny napływają na żywo
-- [ ] 4.4 Reasoning osobno; follow-up bez reasoningu w historii
-- [ ] 4.5 Stats widoczne po odpowiedzi
-- [ ] 4.6 Partial + błąd przy mid-stream failure
-- [ ] 4.7 Model picker + fallback ręcznego id
+- [x] 4.3 Tokeny napływają na żywo
+- [x] 4.4 Reasoning osobno; follow-up bez reasoningu w historii
+- [x] 4.5 Stats widoczne po odpowiedzi
+- [x] 4.6 Partial + błąd przy mid-stream failure
+- [x] 4.7 Model picker + fallback ręcznego id
 
 ### Faza 5: Testy domykające i hardening deploy
 

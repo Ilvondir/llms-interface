@@ -6,9 +6,13 @@ defineProps({
         type: Boolean,
         default: false,
     },
+    streaming: {
+        type: Boolean,
+        default: false,
+    },
 });
 
-const emit = defineEmits(['send']);
+const emit = defineEmits(['send', 'stop']);
 const draft = ref('');
 
 const canSend = () => draft.value.trim().length > 0;
@@ -30,8 +34,8 @@ const submit = () => {
         class="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3"
         @submit.prevent="submit"
     >
-        <div class="mx-auto max-w-3xl">
-            <div class="flex items-center gap-2 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-950 py-1.5 pl-4 pr-1.5 shadow-sm focus-within:border-gray-500 dark:focus-within:border-gray-400">
+        <div class="mx-auto max-w-3xl flex items-center gap-2">
+            <div class="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-950 py-1.5 pl-4 pr-1.5 shadow-sm focus-within:border-gray-500 dark:focus-within:border-gray-400">
                 <textarea
                     v-model="draft"
                     rows="1"
@@ -51,6 +55,14 @@ const submit = () => {
                     </svg>
                 </button>
             </div>
+            <button
+                v-if="streaming"
+                type="button"
+                class="shrink-0 rounded-xl border border-red-600/40 bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                @click="emit('stop')"
+            >
+                Stop
+            </button>
         </div>
     </form>
 </template>

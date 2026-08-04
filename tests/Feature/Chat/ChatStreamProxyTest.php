@@ -58,6 +58,7 @@ class ChatStreamProxyTest extends TestCase
             $data = $request->data();
 
             $this->assertTrue($data['stream'] ?? false);
+            $this->assertSame(['include_usage' => true], $data['stream_options'] ?? null);
             $this->assertSame('demo-model', $data['model']);
             $this->assertSame(0.2, $data['temperature']);
             $this->assertSame(0.9, $data['top_p']);

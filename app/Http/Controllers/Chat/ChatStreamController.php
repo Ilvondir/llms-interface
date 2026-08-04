@@ -34,6 +34,10 @@ class ChatStreamController extends Controller
         $payload = [
             'model' => $validated['model'],
             'messages' => $messages,
+            // OpenAI / LM Studio: final SSE chunk includes usage when streaming.
+            'stream_options' => [
+                'include_usage' => true,
+            ],
         ];
 
         if (array_key_exists('temperature', $validated) && $validated['temperature'] !== null) {

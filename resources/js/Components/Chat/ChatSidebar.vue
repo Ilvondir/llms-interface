@@ -45,6 +45,10 @@ defineProps({
         type: String,
         default: null,
     },
+    canCreateConversation: {
+        type: Boolean,
+        default: true,
+    },
 });
 
 defineEmits([
@@ -206,6 +210,7 @@ defineEmits([
             <ConversationList
                 :conversations="conversations"
                 :active-id="activeConversationId"
+                :can-create="canCreateConversation"
                 @select="$emit('select-conversation', $event)"
                 @create="$emit('create-conversation')"
                 @rename="$emit('rename-conversation', $event)"

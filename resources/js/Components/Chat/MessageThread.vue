@@ -7,11 +7,15 @@ defineProps({
         type: Array,
         default: () => [],
     },
+    thinkingMessageId: {
+        type: String,
+        default: null,
+    },
 });
 </script>
 
 <template>
-    <div class="flex-1 overflow-y-auto px-4 py-6">
+    <div class="chat-scroll flex-1 overflow-y-auto px-4 py-6">
         <div
             v-if="messages.length === 0"
             class="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400"
@@ -31,17 +35,23 @@ defineProps({
                 <div class="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
                     {{ message.role }}
                 </div>
-                <div class="text-sm whitespace-pre-wrap">{{ message.content }}</div>
+                <ReasoningBlock
+                    v-if="message.role === 'assistant'"
+                    :reasoning="message.reasoning"
+                    :thinking="thinkingMessageId === message.id"
+                />
+                <div
+                    v-if="message.content"
+                    class="text-sm whitespace-pre-wrap"
+                >
+                    {{ message.content }}
+                </div>
                 <p
                     v-if="message.error"
                     class="mt-2 text-xs text-red-600 dark:text-red-400"
                 >
                     {{ message.error }}
                 </p>
-                <ReasoningBlock
-                    v-if="message.role === 'assistant'"
-                    :reasoning="message.reasoning"
-                />
                 <ResponseStats
                     v-if="message.role === 'assistant'"
                     :stats="message.stats"

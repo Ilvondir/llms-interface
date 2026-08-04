@@ -124,7 +124,7 @@ export const toModelMessages = (conversation) => {
     return messages;
 };
 
-const createConversationRecord = (settings) => {
+const createConversationRecord = () => {
     const timestamp = now();
 
     return {
@@ -134,7 +134,7 @@ const createConversationRecord = (settings) => {
         updatedAt: timestamp,
         systemPrompt: '',
         model: '',
-        params: { ...settings.defaultParams },
+        params: defaultParams(),
         messages: [],
     };
 };
@@ -172,8 +172,19 @@ export function useGuestChatStore() {
         conversation.updatedAt = now();
     };
 
+    const isEmptyConversation = (conversation) => (
+        !! conversation && (conversation.messages?.length ?? 0) === 0
+    );
+
     const createConversation = () => {
-        const conversation = createConversationRecord(state.settings);
+        const active = activeConversation.value;
+
+        // Already on a blank chat — do not spam empty conversations.
+        if (isEmptyConversation(active)) {
+            return active;
+        }
+
+        const conversation = createConversationRecord();
         state.conversations = [conversation, ...state.conversations];
         state.activeConversationId = conversation.id;
         persist();
@@ -292,7 +303,7 @@ export function useGuestChatStore() {
         return message;
     };
 
-    const updateMessage = (messageId, patch) => {
+    const updateMessage = (messageId, patch, options = {}) => {
         const conversation = activeConversation.value;
 
         if (! conversation) {
@@ -306,6 +317,11 @@ export function useGuestChatStore() {
         }
 
         Object.assign(message, patch);
+
+        if (options.persist === false) {
+            return;
+        }
+
         touch(conversation);
         persist();
     };
@@ -314,6 +330,7 @@ export function useGuestChatStore() {
         state: readonly(state),
         activeConversation,
         messages,
+        isEmptyConversation,
         createConversation,
         selectConversation,
         renameConversation,
