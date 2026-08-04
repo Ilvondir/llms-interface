@@ -364,23 +364,23 @@ Uzupełnienie pokrycia testów, throttle, hardening Caddy/timeout pod produkcję
 
 #### Automatyczne
 
-- [x] 2.1 Nowe Pages w globie Inertia (smoke: strona resolvuje się w teście Fazy 1 / build później)
+- [x] 2.1 Nowe Pages w globie Inertia (smoke: strona resolvuje się w teście Fazy 1 / build później) — db450c9
 
 #### Ręczne
 
-- [x] 2.2 Reload zachowuje rozmowy i aktywną selekcję
-- [x] 2.3 TTL 1 dzień usuwa starą rozmowę po reload
-- [x] 2.4 Przełączanie rozmów nie miesza wiadomości
+- [x] 2.2 Reload zachowuje rozmowy i aktywną selekcję — db450c9
+- [x] 2.3 TTL 1 dzień usuwa starą rozmowę po reload — db450c9
+- [x] 2.4 Przełączanie rozmów nie miesza wiadomości — db450c9
 
 ### Faza 3: Proxy LLM (models + stream)
 
 #### Automatyczne
 
-- [ ] 3.1 Feature stream + `Http::fake` + `assertStreamed`
-- [ ] 3.2 Feature models + `Http::fake`
-- [ ] 3.3 Assert payload bez reasoning (`Http::assertSent`)
-- [ ] 3.4 Gość wywołuje stream bez auth
-- [ ] 3.5 Pint na dirty PHP
+- [x] 3.1 Feature stream + `Http::fake` + `assertStreamed`
+- [x] 3.2 Feature models + `Http::fake`
+- [x] 3.3 Assert payload bez reasoning (`Http::assertSent`)
+- [x] 3.4 Gość wywołuje stream bez auth
+- [x] 3.5 Pint na dirty PHP
 
 #### Ręczne
 

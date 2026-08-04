@@ -1,12 +1,14 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import ChatLayout from '@/Layouts/ChatLayout.vue';
 import ChatSidebar from '@/Components/Chat/ChatSidebar.vue';
 import MessageThread from '@/Components/Chat/MessageThread.vue';
 import ChatComposer from '@/Components/Chat/ChatComposer.vue';
+import { useChatModels } from '@/composables/useChatModels';
 import { useGuestChatStore } from '@/composables/useGuestChatStore';
 
 const store = useGuestChatStore();
+const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels();
 
 const apiBaseUrl = computed({
     get: () => store.state.settings.apiBaseUrl,
@@ -51,6 +53,24 @@ const conversations = computed(() => store.state.conversations);
 const activeConversationId = computed(() => store.state.activeConversationId);
 const messages = computed(() => store.messages.value);
 
+const commitApiBaseUrl = async (rawUrl) => {
+    const trimmed = String(rawUrl ?? '').trim();
+
+    store.setApiBaseUrl(trimmed);
+
+    const ids = await fetchModels(trimmed);
+
+    if (ids.length > 0 && ! model.value) {
+        store.setModel(ids[0]);
+    }
+};
+
+onMounted(() => {
+    if (store.state.settings.apiBaseUrl) {
+        commitApiBaseUrl(store.state.settings.apiBaseUrl);
+    }
+});
+
 const sendMessage = (content) => {
     store.appendMessage({
         role: 'user',
@@ -69,8 +89,12 @@ const sendMessage = (content) => {
                 v-model:max-tokens="maxTokens"
                 v-model:top-p="topP"
                 v-model:system-prompt="systemPrompt"
+                :model-options="modelOptions"
+                :models-loading="modelsLoading"
+                :models-error="modelsError"
                 :conversations="conversations"
                 :active-conversation-id="activeConversationId"
+                @commit-api-base-url="commitApiBaseUrl"
                 @select-conversation="store.selectConversation"
                 @create-conversation="store.createConversation"
                 @rename-conversation="store.renameConversation"

@@ -10,6 +10,18 @@ defineProps({
         type: String,
         default: '',
     },
+    modelOptions: {
+        type: Array,
+        default: () => [],
+    },
+    modelsLoading: {
+        type: Boolean,
+        default: false,
+    },
+    modelsError: {
+        type: String,
+        default: null,
+    },
     temperature: {
         type: [Number, String],
         default: 0.7,
@@ -42,6 +54,7 @@ defineEmits([
     'update:maxTokens',
     'update:topP',
     'update:systemPrompt',
+    'commit-api-base-url',
     'select-conversation',
     'create-conversation',
     'rename-conversation',
@@ -58,20 +71,59 @@ defineEmits([
                     type="url"
                     class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5"
                     :value="apiBaseUrl"
-                    placeholder="http://localhost:1234/v1"
+                    placeholder="http://localhost:1234"
                     @input="$emit('update:apiBaseUrl', $event.target.value)"
+                    @keydown.enter.prevent="$emit('commit-api-base-url', $event.target.value)"
+                    @blur="$emit('commit-api-base-url', $event.target.value)"
                 >
             </label>
 
             <label class="block space-y-0.5">
                 <span class="font-medium text-gray-500 dark:text-gray-400">Model</span>
+                <select
+                    v-if="modelOptions.length > 0"
+                    class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5"
+                    :value="model"
+                    @change="$emit('update:model', $event.target.value)"
+                >
+                    <option value="" disabled>
+                        Select model
+                    </option>
+                    <option
+                        v-if="model && ! modelOptions.includes(model)"
+                        :value="model"
+                    >
+                        {{ model }} (current)
+                    </option>
+                    <option
+                        v-for="option in modelOptions"
+                        :key="option"
+                        :value="option"
+                    >
+                        {{ option }}
+                    </option>
+                </select>
                 <input
+                    v-else
                     type="text"
                     class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5"
                     :value="model"
                     placeholder="Model id"
+                    :disabled="modelsLoading"
                     @input="$emit('update:model', $event.target.value)"
                 >
+                <span
+                    v-if="modelsLoading"
+                    class="text-[10px] text-gray-500 dark:text-gray-400"
+                >
+                    Loading models…
+                </span>
+                <span
+                    v-else-if="modelsError"
+                    class="text-[10px] text-red-600 dark:text-red-400"
+                >
+                    {{ modelsError }} — type model id manually
+                </span>
             </label>
         </div>
 
