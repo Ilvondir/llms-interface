@@ -109,6 +109,8 @@ FROM node:24-alpine AS ssr
 
 WORKDIR /app
 
+COPY --from=frontend /app/package.json /app/package-lock.json ./
+COPY --from=frontend /app/node_modules ./node_modules
 COPY --from=frontend /app/bootstrap/ssr ./bootstrap/ssr
 
 ENV NODE_ENV=production
