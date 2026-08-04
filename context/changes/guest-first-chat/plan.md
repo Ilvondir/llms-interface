@@ -384,23 +384,23 @@ Uzupełnienie pokrycia testów, throttle, hardening Caddy/timeout pod produkcję
 
 #### Ręczne
 
-- [x] 3.6 Live LM Studio: stream + models
-- [x] 3.7 Abort klienta zamyka upstream sensownie
+- [x] 3.6 Live LM Studio: stream + models — 6be65c4
+- [x] 3.7 Abort klienta zamyka upstream sensownie — 6be65c4
 
 ### Faza 4: Podłączenie UI (stream, picker, stats, błędy)
 
 #### Automatyczne
 
-- [x] 4.1 Testy Fazy 3 nadal przechodzą
-- [x] 4.2 `npm run build` sukces
+- [x] 4.1 Testy Fazy 3 nadal przechodzą — 6be65c4
+- [x] 4.2 `npm run build` sukces — 6be65c4
 
 #### Ręczne
 
-- [x] 4.3 Tokeny napływają na żywo
-- [x] 4.4 Reasoning osobno; follow-up bez reasoningu w historii
-- [x] 4.5 Stats widoczne po odpowiedzi
-- [x] 4.6 Partial + błąd przy mid-stream failure
-- [x] 4.7 Model picker + fallback ręcznego id
+- [x] 4.3 Tokeny napływają na żywo — 6be65c4
+- [x] 4.4 Reasoning osobno; follow-up bez reasoningu w historii — 6be65c4
+- [x] 4.5 Stats widoczne po odpowiedzi — 6be65c4
+- [x] 4.6 Partial + błąd przy mid-stream failure — 6be65c4
+- [x] 4.7 Model picker + fallback ręcznego id — 6be65c4
 
 ### Faza 5: Testy domykające i hardening deploy
 
