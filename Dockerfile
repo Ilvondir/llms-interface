@@ -1,19 +1,5 @@
 # syntax=docker/dockerfile:1
 
-FROM node:24-alpine AS frontend
-
-WORKDIR /app
-
-ARG VITE_APP_NAME=Laravel
-ENV VITE_APP_NAME=$VITE_APP_NAME
-
-COPY package*.json ./
-RUN npm install --ignore-scripts
-
-COPY . .
-RUN npm run build
-
-
 FROM composer:2 AS backend
 
 WORKDIR /app
@@ -33,6 +19,21 @@ RUN composer dump-autoload \
     --no-interaction
 
 
+FROM node:24-alpine AS frontend
+
+WORKDIR /app
+
+ARG VITE_APP_NAME=Laravel
+ENV VITE_APP_NAME=$VITE_APP_NAME
+
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+
+COPY . .
+COPY --from=backend /app/vendor /app/vendor
+RUN npm run build:ssr
+
+
 FROM dunglas/frankenphp:1-php8.4-alpine AS production
 
 RUN install-php-extensions \
@@ -49,6 +50,7 @@ WORKDIR /app
 
 COPY --from=backend --chown=www-data:www-data /app /app
 COPY --from=frontend --chown=www-data:www-data /app/public/build /app/public/build
+COPY --from=frontend --chown=www-data:www-data /app/bootstrap/ssr /app/bootstrap/ssr
 
 RUN mkdir -p \
         storage/app/private \
@@ -101,3 +103,16 @@ EXPOSE 80
 
 ENTRYPOINT ["production-entrypoint"]
 CMD ["frankenphp", "run", "--config", "/etc/caddy/Caddyfile"]
+
+
+FROM node:24-alpine AS ssr
+
+WORKDIR /app
+
+COPY --from=frontend /app/bootstrap/ssr ./bootstrap/ssr
+
+ENV NODE_ENV=production
+
+EXPOSE 13714
+
+CMD ["node", "bootstrap/ssr/ssr.js"]
