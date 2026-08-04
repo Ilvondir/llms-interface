@@ -29,7 +29,7 @@ Brak wygodnej, mainstreamowo-czatowej nakładki webowej na lokalnie hostowany mo
 
 | ID | Change ID | Wynik (użytkownik może…) | Wymagania wstępne | Odwołania do PRD | Status |
 |---|---|---|---|---|---|
-| S-01 | guest-first-chat | jako gość podać URL API, ustawić parametry/system prompt, prowadzić czat i zobaczyć odpowiedź z osobnym reasoningiem, statsami oraz postępem; trwałość tylko lokalnie; historia do modelu bez reasoningu | — | US-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-009 | gotowy |
+| S-01 | guest-first-chat | jako gość podać URL API, ustawić parametry/system prompt, prowadzić czat i zobaczyć odpowiedź z osobnym reasoningiem, statsami oraz postępem; trwałość tylko lokalnie; historia do modelu bez reasoningu | — | US-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-009 | done |
 | S-02 | account-conversation-persistence | po zalogowaniu mieć rozmowy i prompty w magazynie konta z parametrami użytego odpytania | S-01 | US-01, FR-008 | proponowany |
 | S-03 | vision-image-input | wysłać zdjęcie, gdy model jest wizyjny | S-01 | FR-010 | zablokowany |
 
@@ -71,7 +71,7 @@ Brak. Auth i wdrożenie są obecne w bazie; domena czatu wchodzi pionowo w fragm
 - **Niewiadome:**
   - Dokładna lista parametrów API hosta modelu do panelu — Właściciel: user. Blokada: nie (plan przyjmuje cienki, wspólny podzbiór parametrów zgodnych z API czatu; pełna lista zostaje otwartym pytaniem roadmapy).
 - **Ryzyko:** tu jest klin produktu (kompozycja historii / reasoning / stats / gość lokalnie); odłożenie go za fundamentami UI lub schematu konta opóźni jedyną walidację Primary Success. Główne ryzyko wykonawcze: kontrakt odpowiedzi hosta modelu (reasoning + stats + stream).
-- **Status:** gotowy
+- **Status:** done
 
 ### S-02: Trwałość rozmów na koncie
 
@@ -121,4 +121,4 @@ Brak. Auth i wdrożenie są obecne w bazie; domena czatu wchodzi pionowo w fragm
 
 ## Zrobione
 
-(Puste przy pierwszym generowaniu. `/10x-archive` dodaje tu wpisy.)
+- **S-01: użytkownik jako gość może podać URL API modelu, ustawić parametry i system prompt, prowadzić rozmowę w UI czatu, widzieć napływającą odpowiedź z osobnym reasoningiem (gdy jest) oraz statsami; aplikacja składa historię bez reasoningu; trwałość tylko lokalnie w przeglądarce.** — Archived 2026-08-04 → `context/archive/2026-08-04-guest-first-chat/`. Lesson: —.

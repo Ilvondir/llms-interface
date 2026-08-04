@@ -1,10 +1,10 @@
 ---
 change_id: guest-first-chat
 title: Pierwsza rozmowa gościa
-status: impl_reviewed
+status: archived
 created: 2026-08-04
 updated: 2026-08-04
-archived_at: null
+archived_at: 2026-08-04T20:51:04Z
 ---
 
 ## Notes
