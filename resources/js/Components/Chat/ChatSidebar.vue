@@ -15,8 +15,7 @@ defineProps({
         default: 0.7,
     },
     maxTokens: {
-        type: [Number, String],
-        default: 2048,
+        default: null,
     },
     topP: {
         type: [Number, String],
@@ -46,6 +45,7 @@ defineEmits([
     'select-conversation',
     'create-conversation',
     'rename-conversation',
+    'delete-conversation',
 ]);
 </script>
 
@@ -93,17 +93,7 @@ defineEmits([
                         @input="$emit('update:temperature', $event.target.value)"
                     >
                 </label>
-                <label class="block space-y-0.5 min-w-0">
-                    <span class="text-gray-500 dark:text-gray-400 truncate block">Max tok</span>
-                    <input
-                        type="number"
-                        min="1"
-                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
-                        :value="maxTokens"
-                        @input="$emit('update:maxTokens', $event.target.value)"
-                    >
-                </label>
-                <label class="block space-y-0.5 min-w-0">
+                <label class="block space-y-0.5 min-w-0 col-span-1">
                     <span class="text-gray-500 dark:text-gray-400 truncate block">Top P</span>
                     <input
                         type="number"
@@ -115,7 +105,35 @@ defineEmits([
                         @input="$emit('update:topP', $event.target.value)"
                     >
                 </label>
+                <div class="block space-y-0.5 min-w-0">
+                    <span class="text-gray-500 dark:text-gray-400 truncate block">Max tok</span>
+                    <button
+                        v-if="maxTokens === null || maxTokens === ''"
+                        type="button"
+                        class="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-xs py-1 text-left px-2 text-gray-700 dark:text-gray-200"
+                        title="Click to set a limit"
+                        @click="$emit('update:maxTokens', 2048)"
+                    >
+                        Unlimited
+                    </button>
+                    <input
+                        v-else
+                        type="number"
+                        min="1"
+                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
+                        :value="maxTokens"
+                        @input="$emit('update:maxTokens', $event.target.value === '' ? null : $event.target.value)"
+                    >
+                </div>
             </div>
+            <button
+                v-if="maxTokens !== null && maxTokens !== ''"
+                type="button"
+                class="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline-offset-2 hover:underline"
+                @click="$emit('update:maxTokens', null)"
+            >
+                Use unlimited max tokens
+            </button>
 
             <label class="block space-y-0.5">
                 <span class="text-gray-500 dark:text-gray-400">System prompt</span>
@@ -139,6 +157,7 @@ defineEmits([
                 @select="$emit('select-conversation', $event)"
                 @create="$emit('create-conversation')"
                 @rename="$emit('rename-conversation', $event)"
+                @delete="$emit('delete-conversation', $event)"
             />
         </div>
     </div>

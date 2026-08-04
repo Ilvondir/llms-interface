@@ -350,27 +350,27 @@ Uzupełnienie pokrycia testów, throttle, hardening Caddy/timeout pod produkcję
 
 #### Automatyczne
 
-- [x] 1.1 `route:list` — publiczny home bez auth
-- [x] 1.2 Feature auth nadal przechodzi (`AuthenticationTest`)
-- [x] 1.3 Feature — gość `GET /` → Inertia `Chat/Index`
+- [x] 1.1 `route:list` — publiczny home bez auth — 46bf57e
+- [x] 1.2 Feature auth nadal przechodzi (`AuthenticationTest`) — 46bf57e
+- [x] 1.3 Feature — gość `GET /` → Inertia `Chat/Index` — 46bf57e
 
 #### Ręczne
 
-- [x] 1.4 Gość widzi shell czatu bez logowania
-- [x] 1.5 Zalogowany: link Profil działa
-- [x] 1.6 Layout panel + wątek + composer czytelny na desktopie
+- [x] 1.4 Gość widzi shell czatu bez logowania — 46bf57e
+- [x] 1.5 Zalogowany: link Profil działa — 46bf57e
+- [x] 1.6 Layout panel + wątek + composer czytelny na desktopie — 46bf57e
 
 ### Faza 2: Trwałość gościa (localStorage)
 
 #### Automatyczne
 
-- [ ] 2.1 Nowe Pages w globie Inertia (smoke: strona resolvuje się w teście Fazy 1 / build później)
+- [x] 2.1 Nowe Pages w globie Inertia (smoke: strona resolvuje się w teście Fazy 1 / build później)
 
 #### Ręczne
 
-- [ ] 2.2 Reload zachowuje rozmowy i aktywną selekcję
-- [ ] 2.3 TTL 1 dzień usuwa starą rozmowę po reload
-- [ ] 2.4 Przełączanie rozmów nie miesza wiadomości
+- [x] 2.2 Reload zachowuje rozmowy i aktywną selekcję
+- [x] 2.3 TTL 1 dzień usuwa starą rozmowę po reload
+- [x] 2.4 Przełączanie rozmów nie miesza wiadomości
 
 ### Faza 3: Proxy LLM (models + stream)
 
