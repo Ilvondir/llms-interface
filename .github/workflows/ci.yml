@@ -72,10 +72,19 @@ jobs:
       - name: Trigger Coolify webhook
         env:
           COOLIFY_WEBHOOK_URL: ${{ secrets.COOLIFY_WEBHOOK_URL }}
+          COOLIFY_TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
           if [ -z "${COOLIFY_WEBHOOK_URL}" ]; then
             echo "Missing secret: COOLIFY_WEBHOOK_URL"
             exit 1
           fi
 
-          curl --fail --silent --show-error --request GET "${COOLIFY_WEBHOOK_URL}"
+          if [ -z "${COOLIFY_TOKEN}" ]; then
+            echo "Missing secret: COOLIFY_TOKEN"
+            exit 1
+          fi
+
+          curl --fail --silent --show-error \
+            --request GET \
+            --header "Authorization: Bearer ${COOLIFY_TOKEN}" \
+            "${COOLIFY_WEBHOOK_URL}"
