@@ -71,8 +71,17 @@ RUN mkdir -p \
 
 :80 {
     root * /app/public
-    encode zstd br gzip
-    php_server
+
+    # SSE must not be compressed — encode buffers the full response.
+    handle /chat/stream* {
+        header X-Accel-Buffering "no"
+        php_server
+    }
+
+    handle {
+        encode zstd br gzip
+        php_server
+    }
 }
 EOF
 

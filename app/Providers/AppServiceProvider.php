@@ -2,6 +2,9 @@
 
 namespace App\Providers;
 
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,6 +23,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('llms-chat', function (Request $request) {
+            return Limit::perMinute((int) config('llms.throttle_per_minute', 60))
+                ->by($request->ip());
+        });
+
         if (config('app.env') === 'local') {
             return;
         }

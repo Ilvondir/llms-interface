@@ -10,11 +10,11 @@ Route::get('/', function () {
 })->name('home');
 
 Route::post('/chat/stream', ChatStreamController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:llms-chat')
     ->name('chat.stream');
 
 Route::post('/chat/models', ChatModelsController::class)
-    ->middleware('throttle:60,1')
+    ->middleware('throttle:llms-chat')
     ->name('chat.models');
 
 Route::middleware([

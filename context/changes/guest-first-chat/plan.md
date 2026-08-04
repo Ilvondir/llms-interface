@@ -406,11 +406,11 @@ Uzupełnienie pokrycia testów, throttle, hardening Caddy/timeout pod produkcję
 
 #### Automatyczne
 
-- [ ] 5.1 `php artisan test --compact` (filtr Chat) przechodzi
-- [ ] 5.2 Pint dirty
-- [ ] 5.3 `npm run build` sukces
+- [x] 5.1 `php artisan test --compact` (filtr Chat) przechodzi
+- [x] 5.2 Pint dirty
+- [x] 5.3 `npm run build` sukces
 
 #### Ręczne
 
-- [ ] 5.4 Smoke długiego streamu bez buforowania końca
-- [ ] 5.5 Brak migracji/tabel Conversation w tej zmianie
+- [x] 5.4 Smoke długiego streamu bez buforowania końca
+- [x] 5.5 Brak migracji/tabel Conversation w tej zmianie
