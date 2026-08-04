@@ -30,12 +30,23 @@ class ChatCompletionProxy
     {
         $apiRoot = $this->normalizeApiRoot($apiBaseUrl);
         $url = $apiRoot.'/chat/completions';
+        $timeout = $this->chatTimeoutSeconds();
+        $connectTimeout = max(1, (int) config('llms.connect_timeout', 10));
+
+        // FrankenPHP/PHP default max_execution_time is 30s — kills SSE mid-stream on Coolify.
+        set_time_limit($timeout);
+        ignore_user_abort(true);
+        ini_set('default_socket_timeout', (string) $timeout);
 
         $upstream = Http::accept('text/event-stream')
             ->asJson()
-            ->timeout((int) config('llms.timeout', 300))
-            ->connectTimeout((int) config('llms.connect_timeout', 10))
-            ->withOptions(['stream' => true])
+            ->timeout($timeout)
+            ->connectTimeout($connectTimeout)
+            ->withOptions([
+                'stream' => true,
+                // Keep reading the body for the full chat window (not just headers).
+                'read_timeout' => $timeout,
+            ])
             ->post($url, [
                 ...$payload,
                 'stream' => true,
@@ -53,7 +64,9 @@ class ChatCompletionProxy
 
         $psrBody = $upstream->toPsrResponse()->getBody();
 
-        return response()->stream(function () use ($psrBody, $upstream): void {
+        return response()->stream(function () use ($psrBody, $upstream, $timeout): void {
+            set_time_limit($timeout);
+
             try {
                 while (! $psrBody->eof()) {
                     if (connection_aborted()) {
@@ -77,6 +90,11 @@ class ChatCompletionProxy
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
         ]);
+    }
+
+    public function chatTimeoutSeconds(): int
+    {
+        return max(1, (int) config('llms.timeout', 300));
     }
 
     /**

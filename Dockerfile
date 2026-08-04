@@ -46,7 +46,12 @@ RUN install-php-extensions \
     pdo_pgsql \
     zip \
     && apk add --no-cache wget curl \
-    && mkdir -p /tmp/caddy/config /tmp/caddy/data
+    && mkdir -p /tmp/caddy/config /tmp/caddy/data \
+    && printf '%s\n' \
+        '; Long LLM SSE streams (Coolify / FrankenPHP).' \
+        'max_execution_time = 0' \
+        'default_socket_timeout = 600' \
+        > /usr/local/etc/php/conf.d/zz-llms-stream.ini
 
 WORKDIR /app
 

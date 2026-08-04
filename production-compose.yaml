@@ -18,6 +18,10 @@ x-app-environment: &app-environment
     FILESYSTEM_DISK: "${FILESYSTEM_DISK:-local}"
     INERTIA_SSR_ENABLED: "true"
     INERTIA_SSR_URL: "http://ssr:13714"
+    # Upstream LM Studio streams often exceed PHP's default 30s; keep in sync with Coolify proxy timeouts.
+    LLMS_CHAT_TIMEOUT: "${LLMS_CHAT_TIMEOUT:-600}"
+    LLMS_CONNECT_TIMEOUT: "${LLMS_CONNECT_TIMEOUT:-10}"
+    LLMS_MODELS_TIMEOUT: "${LLMS_MODELS_TIMEOUT:-30}"
 
 services:
     app:
