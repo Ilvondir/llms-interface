@@ -31,7 +31,9 @@ RUN npm ci --ignore-scripts
 
 COPY . .
 COPY --from=backend /app/vendor /app/vendor
-RUN npm run build:ssr
+RUN npm run build:ssr \
+    && test -f bootstrap/ssr/ssr.js \
+    && test -d public/build
 
 
 FROM dunglas/frankenphp:1-php8.4-alpine AS production
@@ -43,14 +45,14 @@ RUN install-php-extensions \
     pcntl \
     pdo_pgsql \
     zip \
-    && apk add --no-cache libcap-utils \
-    && setcap cap_net_bind_service=+ep /usr/local/bin/frankenphp
+    && apk add --no-cache wget curl \
+    && mkdir -p /tmp/caddy/config /tmp/caddy/data
 
 WORKDIR /app
 
-COPY --from=backend --chown=www-data:www-data /app /app
-COPY --from=frontend --chown=www-data:www-data /app/public/build /app/public/build
-COPY --from=frontend --chown=www-data:www-data /app/bootstrap/ssr /app/bootstrap/ssr
+COPY --from=backend /app /app
+COPY --from=frontend /app/public/build /app/public/build
+COPY --from=frontend /app/bootstrap/ssr /app/bootstrap/ssr
 
 RUN mkdir -p \
         storage/app/private \
@@ -60,7 +62,6 @@ RUN mkdir -p \
         storage/framework/views \
         storage/logs \
         bootstrap/cache \
-    && chown -R www-data:www-data storage bootstrap/cache \
     && cat > /etc/caddy/Caddyfile <<'EOF'
 {
     auto_https off
@@ -79,6 +80,22 @@ COPY <<'EOF' /usr/local/bin/production-entrypoint
 #!/bin/sh
 set -eu
 
+cd /app
+
+mkdir -p \
+    storage/app/private \
+    storage/app/public \
+    storage/framework/cache/data \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
+
+if [ -z "${APP_KEY:-}" ]; then
+    echo "FATAL: APP_KEY is empty. Set it in Coolify environment." >&2
+    exit 1
+fi
+
 php artisan storage:link --force --no-interaction
 php artisan config:cache --no-interaction
 php artisan view:cache --no-interaction
@@ -96,8 +113,6 @@ ENV APP_ENV=production \
     LOG_CHANNEL=stderr \
     XDG_CONFIG_HOME=/tmp/caddy/config \
     XDG_DATA_HOME=/tmp/caddy/data
-
-USER www-data
 
 EXPOSE 80
 

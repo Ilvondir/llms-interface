@@ -45,8 +45,8 @@ services:
             test: ["CMD", "wget", "--quiet", "--spider", "http://127.0.0.1/up"]
             interval: 15s
             timeout: 5s
-            retries: 5
-            start_period: 30s
+            retries: 10
+            start_period: 60s
 
     ssr:
         build:
@@ -69,8 +69,8 @@ services:
                 ]
             interval: 15s
             timeout: 5s
-            retries: 5
-            start_period: 20s
+            retries: 10
+            start_period: 40s
 
     database:
         image: postgres:15-alpine
