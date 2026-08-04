@@ -1,0 +1,52 @@
+<script setup>
+import ReasoningBlock from '@/Components/Chat/ReasoningBlock.vue';
+import ResponseStats from '@/Components/Chat/ResponseStats.vue';
+
+defineProps({
+    messages: {
+        type: Array,
+        default: () => [],
+    },
+});
+</script>
+
+<template>
+    <div class="flex-1 overflow-y-auto px-4 py-6">
+        <div
+            v-if="messages.length === 0"
+            class="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400"
+        >
+            Send a message to start the conversation.
+        </div>
+
+        <div v-else class="mx-auto max-w-3xl space-y-4">
+            <div
+                v-for="message in messages"
+                :key="message.id"
+                class="rounded-lg px-4 py-3"
+                :class="message.role === 'user'
+                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 ml-8'
+                    : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 mr-8'"
+            >
+                <div class="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
+                    {{ message.role }}
+                </div>
+                <div class="text-sm whitespace-pre-wrap">{{ message.content }}</div>
+                <p
+                    v-if="message.error"
+                    class="mt-2 text-xs text-red-600 dark:text-red-400"
+                >
+                    {{ message.error }}
+                </p>
+                <ReasoningBlock
+                    v-if="message.role === 'assistant'"
+                    :reasoning="message.reasoning"
+                />
+                <ResponseStats
+                    v-if="message.role === 'assistant'"
+                    :stats="message.stats"
+                />
+            </div>
+        </div>
+    </div>
+</template>
