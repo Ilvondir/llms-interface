@@ -6,13 +6,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\UpdateChatSettingsRequest;
 use App\Models\Conversation;
 use App\Support\Chat\AccountChatPresenter;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class ChatSettingsController extends Controller
 {
     public function __construct(private AccountChatPresenter $presenter) {}
 
-    public function update(UpdateChatSettingsRequest $request): RedirectResponse
+    public function update(UpdateChatSettingsRequest $request): Response|JsonResponse
     {
         $user = $request->user();
         $settings = $this->presenter->settingsFor($user);
@@ -35,10 +37,20 @@ class ChatSettingsController extends Controller
                 : $settings->active_conversation_id,
         ])->save();
 
+        $active = null;
+
         if ($settings->active_conversation_id) {
-            return redirect()->route('conversations.show', $settings->active_conversation_id);
+            $active = $user->conversations()
+                ->with(['prompts' => fn ($query) => $query->orderBy('position')])
+                ->find($settings->active_conversation_id);
         }
 
-        return redirect()->route('home');
+        $props = $this->presenter->props($user, $active);
+
+        if ($request->wantsJson()) {
+            return response()->json($props);
+        }
+
+        return Inertia::render('Chat/Index', $props);
     }
 }

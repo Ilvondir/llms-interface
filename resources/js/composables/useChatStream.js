@@ -264,18 +264,18 @@ export function useChatStream() {
                 outputChars,
             });
 
-            onFinish?.({ content, reasoning, stats });
+            await onFinish?.({ content, reasoning, stats });
         } catch (error) {
             if (error?.name === 'AbortError') {
                 ({ content, reasoning } = publish());
                 onThinking?.(false);
-                onFinish?.({ content, reasoning, stats: null, aborted: true });
+                await onFinish?.({ content, reasoning, stats: null, aborted: true });
             } else {
                 const message = error instanceof Error ? error.message : 'Stream failed';
                 streamError.value = message;
                 ({ content, reasoning } = publish());
                 onThinking?.(false);
-                onError?.({ message, content, reasoning });
+                await onError?.({ message, content, reasoning });
             }
         } finally {
             isStreaming.value = false;

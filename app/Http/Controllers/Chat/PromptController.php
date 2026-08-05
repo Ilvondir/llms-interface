@@ -7,12 +7,17 @@ use App\Http\Requests\Chat\StorePromptRequest;
 use App\Http\Requests\Chat\UpdatePromptRequest;
 use App\Models\Conversation;
 use App\Models\Prompt;
-use Illuminate\Http\RedirectResponse;
+use App\Support\Chat\AccountChatPresenter;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class PromptController extends Controller
 {
-    public function store(StorePromptRequest $request, Conversation $conversation): RedirectResponse
+    public function __construct(private AccountChatPresenter $presenter) {}
+
+    public function store(StorePromptRequest $request, Conversation $conversation): Response|JsonResponse
     {
         $validated = $request->validated();
 
@@ -33,11 +38,18 @@ class PromptController extends Controller
         ]);
 
         $conversation->touch();
+        $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
 
-        return redirect()->route('conversations.show', $conversation);
+        $props = $this->presenter->props($request->user(), $conversation);
+
+        if ($request->wantsJson()) {
+            return response()->json($props);
+        }
+
+        return Inertia::render('Chat/Index', $props);
     }
 
-    public function update(UpdatePromptRequest $request, Conversation $conversation, Prompt $prompt): RedirectResponse
+    public function update(UpdatePromptRequest $request, Conversation $conversation, Prompt $prompt): Response|JsonResponse
     {
         abort_unless($prompt->conversation_id === $conversation->id, 404);
 
@@ -62,7 +74,14 @@ class PromptController extends Controller
         ])->save();
 
         $conversation->touch();
+        $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
 
-        return redirect()->route('conversations.show', $conversation);
+        $props = $this->presenter->props($request->user(), $conversation);
+
+        if ($request->wantsJson()) {
+            return response()->json($props);
+        }
+
+        return Inertia::render('Chat/Index', $props);
     }
 }

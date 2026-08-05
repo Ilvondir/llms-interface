@@ -332,34 +332,34 @@ Domknięcie guardrailów PRD w CI zgodnie z decyzją 8B.
 
 #### Automated
 
-- [x] 2.1 Auth `GET /` Inertia props z conversations
-- [x] 2.2 Guest `GET /` bez wycieku danych konta
-- [x] 2.3 Auth CRUD create/rename/delete conversation
-- [x] 2.4 Ownership 403 dla cudzej rozmowy
-- [x] 2.5 Guest POST CRUD → unauthenticated (brak insertu)
-- [x] 2.6 Pint dirty Fazy 2
+- [x] 2.1 Auth `GET /` Inertia props z conversations — d8d8847
+- [x] 2.2 Guest `GET /` bez wycieku danych konta — d8d8847
+- [x] 2.3 Auth CRUD create/rename/delete conversation — d8d8847
+- [x] 2.4 Ownership 403 dla cudzej rozmowy — d8d8847
+- [x] 2.5 Guest POST CRUD → unauthenticated (brak insertu) — d8d8847
+- [x] 2.6 Pint dirty Fazy 2 — d8d8847
 
 #### Manual
 
-- [ ] 2.7 Auth reload zachowuje rozmowy z DB
-- [ ] 2.8 Inertia select rozmowy ładuje właściwy wątek
-- [ ] 2.9 Guest smoke: brak wierszy DB po użyciu UI
+- [x] 2.7 Auth reload zachowuje rozmowy z DB
+- [x] 2.8 Inertia select rozmowy ładuje właściwy wątek
+- [x] 2.9 Guest smoke: brak wierszy DB po użyciu UI
 
 ### Faza 3: Front — branch auth vs guest
 
 #### Automated
 
-- [ ] 3.1 `npm run build` sukces
-- [ ] 3.2 Regresja Feature stream/models
+- [x] 3.1 `npm run build` sukces
+- [x] 3.2 Regresja Feature stream/models
 
 #### Manual
 
-- [ ] 3.3 Guest flow S-01 bez regresji
-- [ ] 3.4 Auth multi-conv CRUD + reload z DB
-- [ ] 3.5 Auth zapis user+assistant (reasoning/stats/params/requestPayload)
-- [ ] 3.6 Auth partial+error mid-stream zapisane
-- [ ] 3.7 Follow-up bez reasoning w historii upstream
-- [ ] 3.8 Po loginie brak auto-importu guest store
+- [x] 3.3 Guest flow S-01 bez regresji
+- [x] 3.4 Auth multi-conv CRUD + reload z DB
+- [x] 3.5 Auth zapis user+assistant (reasoning/stats/params/requestPayload)
+- [x] 3.6 Auth partial+error mid-stream zapisane
+- [x] 3.7 Follow-up bez reasoning w historii upstream
+- [x] 3.8 Po loginie brak auto-importu guest store
 
 ### Faza 4: Testy Feature dual-path
 

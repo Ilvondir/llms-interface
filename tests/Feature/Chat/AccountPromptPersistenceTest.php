@@ -24,7 +24,7 @@ class AccountPromptPersistenceTest extends TestCase
             'content' => 'Hello',
             'sent_at' => 1_700_000_000_000,
         ]);
-        $storeUser->assertRedirect(route('conversations.show', $conversation));
+        $storeUser->assertOk();
 
         $userPrompt = Prompt::query()->where('conversation_id', $conversation->id)->where('role', 'user')->first();
         $this->assertNotNull($userPrompt);
@@ -44,7 +44,7 @@ class AccountPromptPersistenceTest extends TestCase
             'request_payload' => ['model' => 'local-model'],
             'received_at' => 1_700_000_000_500,
         ]);
-        $storeAssistant->assertRedirect(route('conversations.show', $conversation));
+        $storeAssistant->assertOk();
 
         $assistant = Prompt::query()->where('conversation_id', $conversation->id)->where('role', 'assistant')->first();
         $this->assertNotNull($assistant);
@@ -60,7 +60,7 @@ class AccountPromptPersistenceTest extends TestCase
                 'reasoning' => 'partial think',
             ],
         );
-        $update->assertRedirect(route('conversations.show', $conversation));
+        $update->assertOk();
 
         $assistant->refresh();
         $this->assertSame('Hi partial', $assistant->content);

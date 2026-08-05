@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import ChatLayout from '@/Layouts/ChatLayout.vue';
 import ChatSidebar from '@/Components/Chat/ChatSidebar.vue';
 import MessageThread from '@/Components/Chat/MessageThread.vue';
 import ChatComposer from '@/Components/Chat/ChatComposer.vue';
+import { useAccountChatStore } from '@/composables/useAccountChatStore';
 import { useChatModels } from '@/composables/useChatModels';
 import { useChatStream } from '@/composables/useChatStream';
 import { useGuestChatStore } from '@/composables/useGuestChatStore';
@@ -12,61 +14,93 @@ import { splitThinkTaggedContent } from '@/utils/assistantOutput';
 import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
 
+const props = defineProps({
+    chatSettings: {
+        type: Object,
+        default: null,
+    },
+    conversations: {
+        type: Array,
+        default: null,
+    },
+    activeConversation: {
+        type: Object,
+        default: null,
+    },
+});
+
 const toast = useToast();
-const store = useGuestChatStore();
+const page = usePage();
+const isAuthenticated = computed(() => !! page.props.auth?.user);
+
+const guestStore = useGuestChatStore();
+const accountStore = useAccountChatStore({
+    chatSettings: props.chatSettings,
+    conversations: props.conversations,
+    activeConversation: props.activeConversation,
+});
+
+const store = computed(() => (isAuthenticated.value ? accountStore : guestStore));
+
 const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels();
 const { isStreaming, streamChat, cancel } = useChatStream();
 const streamingMessageId = ref(null);
 const thinkingMessageId = ref(null);
 
 const apiBaseUrl = computed({
-    get: () => store.state.settings.apiBaseUrl,
-    set: (value) => store.setApiBaseUrl(value),
+    get: () => store.value.state.settings.apiBaseUrl,
+    set: (value) => store.value.setApiBaseUrl(value),
 });
 
 const model = computed({
-    get: () => store.activeConversation.value?.model ?? '',
-    set: (value) => store.setModel(value),
+    get: () => store.value.activeConversation.value?.model ?? '',
+    set: (value) => store.value.setModel(value),
 });
 
 const temperature = computed({
-    get: () => store.activeConversation.value?.params?.temperature ?? store.state.settings.defaultParams.temperature,
-    set: (value) => store.setTemperature(value),
+    get: () => store.value.activeConversation.value?.params?.temperature
+        ?? store.value.state.settings.defaultParams.temperature,
+    set: (value) => store.value.setTemperature(value),
 });
 
 const maxTokens = computed({
     get: () => {
-        const conversation = store.activeConversation.value;
+        const conversation = store.value.activeConversation.value;
 
         // null means Unlimited — do not fall back with ?? (null is intentional)
         if (conversation) {
             return conversation.params.max_tokens;
         }
 
-        return store.state.settings.defaultParams.max_tokens;
+        return store.value.state.settings.defaultParams.max_tokens;
     },
-    set: (value) => store.setMaxTokens(value),
+    set: (value) => store.value.setMaxTokens(value),
 });
 
 const topP = computed({
-    get: () => store.activeConversation.value?.params?.top_p ?? store.state.settings.defaultParams.top_p,
-    set: (value) => store.setTopP(value),
+    get: () => store.value.activeConversation.value?.params?.top_p
+        ?? store.value.state.settings.defaultParams.top_p,
+    set: (value) => store.value.setTopP(value),
 });
 
 const systemPrompt = computed({
-    get: () => store.activeConversation.value?.systemPrompt ?? '',
-    set: (value) => store.setSystemPrompt(value),
+    get: () => store.value.activeConversation.value?.systemPrompt ?? '',
+    set: (value) => store.value.setSystemPrompt(value),
 });
 
-const conversations = computed(() => store.state.conversations);
-const activeConversationId = computed(() => store.state.activeConversationId);
-const messages = computed(() => store.messages.value);
+const conversations = computed(() => store.value.state.conversations);
+const activeConversationId = computed(() => (
+    isAuthenticated.value
+        ? store.value.state.settings.activeConversationId
+        : store.value.state.activeConversationId
+));
+const messages = computed(() => store.value.messages.value);
 const canCreateConversation = computed(() => (
-    ! store.isEmptyConversation(store.activeConversation.value)
+    ! store.value.isEmptyConversation(store.value.activeConversation.value)
 ));
 
 const historyForModel = () => (
-    (store.activeConversation.value?.messages ?? [])
+    (store.value.activeConversation.value?.messages ?? [])
         .filter((message) => message.role === 'user' || message.role === 'assistant')
         .map((message) => {
             const content = message.role === 'assistant'
@@ -81,21 +115,28 @@ const historyForModel = () => (
         .filter((message) => typeof message.content === 'string' && message.content.trim() !== '')
 );
 
-const commitApiBaseUrl = async (rawUrl) => {
+const commitApiBaseUrl = async (rawUrl, { persist = true } = {}) => {
     const trimmed = String(rawUrl ?? '').trim();
 
-    store.setApiBaseUrl(trimmed);
+    store.value.setApiBaseUrl(trimmed);
+
+    if (persist && typeof store.value.persistApiBaseUrl === 'function') {
+        await store.value.persistApiBaseUrl();
+    }
 
     const ids = await fetchModels(trimmed);
 
     if (ids.length > 0 && ! model.value) {
-        store.setModel(ids[0]);
+        await store.value.setModel(ids[0]);
     }
 };
 
 onMounted(() => {
-    if (store.state.settings.apiBaseUrl) {
-        commitApiBaseUrl(store.state.settings.apiBaseUrl);
+    const url = store.value.state.settings.apiBaseUrl?.trim();
+
+    // Fetch models only — never persist here (persist + redirect remounts Index → infinite loop).
+    if (url) {
+        commitApiBaseUrl(url, { persist: false });
     }
 });
 
@@ -116,29 +157,35 @@ const sendMessage = async (content) => {
         return;
     }
 
-    store.appendMessage({
+    await store.value.appendMessage({
         role: 'user',
         content,
     });
 
     const outboundMessages = historyForModel();
     const requestModel = model.value.trim();
+    const requestParams = {
+        temperature: Number(temperature.value),
+        top_p: Number(topP.value),
+        max_tokens: maxTokens.value,
+    };
     const requestPayload = buildUpstreamRequest({
         model: requestModel,
         systemPrompt: systemPrompt.value,
         messages: outboundMessages,
-        temperature: Number(temperature.value),
-        topP: Number(topP.value),
-        maxTokens: maxTokens.value,
+        temperature: requestParams.temperature,
+        topP: requestParams.top_p,
+        maxTokens: requestParams.max_tokens,
     });
     const sentAt = Date.now();
 
-    const assistant = store.appendMessage({
+    const assistant = await store.value.appendMessage({
         role: 'assistant',
         content: '',
         model: requestModel,
         sentAt,
         requestPayload,
+        params: requestParams,
     });
 
     const enrichStats = (stats) => {
@@ -170,21 +217,21 @@ const sendMessage = async (content) => {
             model: requestModel,
             systemPrompt: systemPrompt.value,
             messages: outboundMessages,
-            temperature: Number(temperature.value),
-            maxTokens: maxTokens.value,
-            topP: Number(topP.value),
+            temperature: requestParams.temperature,
+            maxTokens: requestParams.max_tokens,
+            topP: requestParams.top_p,
             onToken: (_delta, full) => {
-                store.updateMessage(assistant.id, { content: full }, { persist: false });
+                store.value.updateMessage(assistant.id, { content: full }, { persist: false });
             },
             onReasoning: (_delta, full) => {
-                store.updateMessage(assistant.id, { reasoning: full }, { persist: false });
+                store.value.updateMessage(assistant.id, { reasoning: full }, { persist: false });
             },
             onThinking: (active) => {
                 thinkingMessageId.value = active ? assistant.id : null;
             },
-            onFinish: ({ content: finalContent, reasoning, stats }) => {
+            onFinish: async ({ content: finalContent, reasoning, stats }) => {
                 thinkingMessageId.value = null;
-                store.updateMessage(assistant.id, {
+                await store.value.updateMessage(assistant.id, {
                     content: finalContent,
                     reasoning: reasoning || null,
                     stats: enrichStats(stats),
@@ -192,9 +239,9 @@ const sendMessage = async (content) => {
                     error: null,
                 });
             },
-            onError: ({ message, content: partialContent, reasoning }) => {
+            onError: async ({ message, content: partialContent, reasoning }) => {
                 thinkingMessageId.value = null;
-                store.updateMessage(assistant.id, {
+                await store.value.updateMessage(assistant.id, {
                     content: partialContent,
                     reasoning: reasoning || null,
                     stats: enrichStats(null),

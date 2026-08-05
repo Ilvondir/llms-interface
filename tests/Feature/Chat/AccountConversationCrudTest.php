@@ -27,7 +27,7 @@ class AccountConversationCrudTest extends TestCase
         $rename = $this->actingAs($user)->patch(route('conversations.update', $conversation), [
             'title' => 'Renamed',
         ]);
-        $rename->assertRedirect(route('conversations.show', $conversation));
+        $rename->assertOk();
         $this->assertSame('Renamed', $conversation->fresh()->title);
 
         $delete = $this->actingAs($user)->delete(route('conversations.destroy', $conversation));

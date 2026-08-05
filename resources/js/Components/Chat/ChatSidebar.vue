@@ -42,7 +42,7 @@ defineProps({
         default: () => [],
     },
     activeConversationId: {
-        type: String,
+        type: [String, Number],
         default: null,
     },
     canCreateConversation: {

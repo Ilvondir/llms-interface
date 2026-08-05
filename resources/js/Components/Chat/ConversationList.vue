@@ -7,7 +7,7 @@ defineProps({
         default: () => [],
     },
     activeId: {
-        type: String,
+        type: [String, Number],
         default: null,
     },
     canCreate: {
@@ -72,7 +72,7 @@ const cancelRename = () => {
             v-for="conversation in conversations"
             :key="conversation.id"
             class="group flex items-center gap-0.5 rounded"
-            :class="conversation.id === activeId
+            :class="conversation.id == activeId
                 ? 'bg-gray-100 dark:bg-gray-800'
                 : 'hover:bg-gray-50 dark:hover:bg-gray-800/60'"
         >
@@ -91,7 +91,7 @@ const cancelRename = () => {
                 v-else
                 type="button"
                 class="min-w-0 flex-1 text-left px-2 py-1.5 text-xs truncate"
-                :class="conversation.id === activeId
+                :class="conversation.id == activeId
                     ? 'font-medium text-gray-900 dark:text-gray-100'
                     : 'text-gray-700 dark:text-gray-300'"
                 @click="$emit('select', conversation.id)"
