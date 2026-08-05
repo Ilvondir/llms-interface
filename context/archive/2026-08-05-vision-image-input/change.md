@@ -1,10 +1,10 @@
 ---
 change_id: vision-image-input
 title: Vision image input
-status: impl_reviewed
+status: archived
 created: 2026-08-05
 updated: 2026-08-05
-archived_at: null
+archived_at: 2026-08-05T20:09:25Z
 ---
 
 ## Notes
