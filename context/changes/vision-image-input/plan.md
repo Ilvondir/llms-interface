@@ -347,51 +347,51 @@ Uczciwy feedback gdy model nie przyjmuje obrazów; regresje i edge cases domkni�
 
 #### Automated
 
-- [x] 1.1 ChatHistoryComposerTest covers legacy string and image_url parts; reasoning still omitted
-- [x] 1.2 ChatStreamProxy/validation accepts parts and 422s invalid or multi-image payloads
-- [x] 1.3 buildUpstreamRequest JS tests cover parts compose and legacy strings
-- [x] 1.4 Pint passes on dirty PHP
+- [x] 1.1 ChatHistoryComposerTest covers legacy string and image_url parts; reasoning still omitted — 1515110
+- [x] 1.2 ChatStreamProxy/validation accepts parts and 422s invalid or multi-image payloads — 1515110
+- [x] 1.3 buildUpstreamRequest JS tests cover parts compose and legacy strings — 1515110
+- [x] 1.4 Pint passes on dirty PHP — 1515110
 
 #### Manual
 
-- [x] 1.5 Proxy forwards multimodal body correctly (mock or local smoke)
+- [x] 1.5 Proxy forwards multimodal body correctly (mock or local smoke) — 1515110
 
 ### Phase 2: Trwałość konta (parts w content + sanitizacja payload)
 
 #### Automated
 
-- [x] 2.1 AccountPromptPersistenceTest stores and presents content parts
-- [x] 2.2 Oversized request_payload with raw image 422s; sanitized payload stores
-- [x] 2.3 Oversized content above new constant 422s
+- [x] 2.1 AccountPromptPersistenceTest stores and presents content parts — 1515110
+- [x] 2.2 Oversized request_payload with raw image 422s; sanitized payload stores — 1515110
+- [x] 2.3 Oversized content above new constant 422s — 1515110
 - [ ] 2.4 AccountGuestIsolationTest still green
-- [x] 2.5 Pint passes on dirty PHP
+- [x] 2.5 Pint passes on dirty PHP — 1515110
 
 #### Manual
 
-- [x] 2.6 Auth conversation with image survives full page reload with preview/parts intact
+- [x] 2.6 Auth conversation with image survives full page reload with preview/parts intact — 1515110
 
 ### Phase 3: UI auth-only (attach, compress, render, wiring)
 
 #### Automated
 
-- [x] 3.1 JS helper tests for contentParts / sanitize / imageAttach limits
-- [x] 3.2 Existing guest/account and JS CI tests stay green
+- [x] 3.1 JS helper tests for contentParts / sanitize / imageAttach limits — 1515110
+- [x] 3.2 Existing guest/account and JS CI tests stay green — 1515110
 
 #### Manual
 
-- [x] 3.3 Auth: file attach, paste, and drag-and-drop each send one image end-to-end
+- [x] 3.3 Auth: file attach, paste, and drag-and-drop each send one image end-to-end — 1515110
 - [ ] 3.4 Guest: no attach control; image paste does not attach
-- [x] 3.5 Image-only user message (no text) works
+- [x] 3.5 Image-only user message (no text) works — 1515110
 
 ### Phase 4: Błędy vision + domknięcie testów
 
 #### Automated
 
-- [x] 4.1 Focused Feature/Unit/JS chat tests green via php artisan test --compact (+ JS suite)
-- [x] 4.2 Pint clean on dirty PHP
+- [x] 4.1 Focused Feature/Unit/JS chat tests green via php artisan test --compact (+ JS suite) — 1515110
+- [x] 4.2 Pint clean on dirty PHP — 1515110
 
 #### Manual
 
 - [ ] 4.3 Non-vision model returns understandable error; user image turn remains
-- [x] 4.4 Vision model (when available) answers with image context; stats still show
+- [x] 4.4 Vision model (when available) answers with image context; stats still show — 1515110
 - [ ] 4.5 Guest text chat smoke still OK with zero DB conversation rows
