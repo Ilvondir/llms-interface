@@ -3,7 +3,7 @@ project: "LLMsInterface"
 version: 1
 status: draft
 created: 2026-08-04
-updated: 2026-08-04
+updated: 2026-08-05
 prd_version: 1
 main_goal: low-complexity
 top_blocker: decisions
@@ -30,7 +30,7 @@ Brak wygodnej, mainstreamowo-czatowej nakładki webowej na lokalnie hostowany mo
 | ID | Change ID | Wynik (użytkownik może…) | Wymagania wstępne | Odwołania do PRD | Status |
 |---|---|---|---|---|---|
 | S-01 | guest-first-chat | jako gość podać URL API, ustawić parametry/system prompt, prowadzić czat i zobaczyć odpowiedź z osobnym reasoningiem, statsami oraz postępem; trwałość tylko lokalnie; historia do modelu bez reasoningu | — | US-01, FR-001, FR-002, FR-003, FR-004, FR-005, FR-006, FR-007, FR-009 | done |
-| S-02 | account-conversation-persistence | po zalogowaniu mieć rozmowy i prompty w magazynie konta z parametrami użytego odpytania | S-01 | US-01, FR-008 | proponowany |
+| S-02 | account-conversation-persistence | po zalogowaniu mieć rozmowy i prompty w magazynie konta z parametrami użytego odpytania | S-01 | US-01, FR-008 | done |
 | S-03 | vision-image-input | wysłać zdjęcie, gdy model jest wizyjny | S-01 | FR-010 | zablokowany |
 
 ## Strumienie
@@ -83,7 +83,7 @@ Brak. Auth i wdrożenie są obecne w bazie; domena czatu wchodzi pionowo w fragm
 - **Blokady:** —
 - **Niewiadome:** —
 - **Ryzyko:** auth już jest w bazie — ryzyko to poprawne rozdzielenie ścieżki gość vs konto, nie budowa logowania od zera. Sekwencjonowane po S-01, żeby nie mieszać walidacji czatu z modelem danych.
-- **Status:** proponowany
+- **Status:** done
 
 ### S-03: Wejście obrazu (model wizyjny)
 
@@ -122,3 +122,4 @@ Brak. Auth i wdrożenie są obecne w bazie; domena czatu wchodzi pionowo w fragm
 ## Zrobione
 
 - **S-01: użytkownik jako gość może podać URL API modelu, ustawić parametry i system prompt, prowadzić rozmowę w UI czatu, widzieć napływającą odpowiedź z osobnym reasoningiem (gdy jest) oraz statsami; aplikacja składa historię bez reasoningu; trwałość tylko lokalnie w przeglądarce.** — Archived 2026-08-04 → `context/archive/2026-08-04-guest-first-chat/`. Lesson: —.
+- **S-02: użytkownik zalogowany może mieć rozmowy i składowe prompty w magazynie konta wraz z parametrami użytego odpytania; gość nadal nie tworzy rekordów serwerowych.** — Archived 2026-08-05 → `context/archive/2026-08-05-account-conversation-persistence/`. Lesson: —.
