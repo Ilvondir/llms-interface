@@ -43,11 +43,18 @@ class AuthenticationTest extends TestCase
     {
         $user = User::factory()->create();
 
-        $this->post('/login', [
+        $response = $this->from('/login')->post('/login', [
             'email' => $user->email,
             'password' => 'wrong-password',
         ]);
 
         $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors('email');
+        $this->assertSame(
+            'These credentials do not match our records.',
+            $response->getSession()->get('errors')->getBag('default')->first('email'),
+        );
+        $this->assertNotSame('auth.failed', __('auth.failed'));
     }
 }
