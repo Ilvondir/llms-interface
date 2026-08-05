@@ -131,7 +131,7 @@ watch(
 <template>
     <div
         ref="threadEl"
-        class="chat-scroll flex-1 overflow-y-auto px-4 py-6"
+        class="chat-scroll flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6"
     >
         <div
             v-if="messages.length === 0"
@@ -149,8 +149,8 @@ watch(
                 :key="message.id"
                 class="rounded-lg px-4 py-3"
                 :class="message.role === 'user'
-                    ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 ml-8'
-                    : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 mr-8'"
+                    ? 'ml-4 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 sm:ml-8'
+                    : 'mr-4 border border-gray-200 bg-white dark:border-gray-800 dark:bg-gray-900 sm:mr-8'"
             >
                 <div class="mb-1 flex items-start justify-between gap-2">
                     <div class="min-w-0">

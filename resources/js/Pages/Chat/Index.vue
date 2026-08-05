@@ -31,6 +31,7 @@ const props = defineProps({
     },
 });
 
+const chatLayout = ref(null);
 const toast = useToast();
 const page = usePage();
 const isAuthenticated = computed(() => !! page.props.auth?.user);
@@ -59,6 +60,20 @@ const resolveStore = () => {
 };
 
 const store = computed(() => resolveStore());
+
+const closeMobileSidebar = () => {
+    chatLayout.value?.closeSidebar();
+};
+
+const selectConversation = (id) => {
+    store.value.selectConversation(id);
+    closeMobileSidebar();
+};
+
+const createConversation = () => {
+    store.value.createConversation();
+    closeMobileSidebar();
+};
 
 const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels();
 const { isStreaming, streamChat, cancel } = useChatStream();
@@ -299,7 +314,10 @@ const sendMessage = async (payload) => {
 </script>
 
 <template>
-    <ChatLayout title="Chat">
+    <ChatLayout
+        ref="chatLayout"
+        title="Chat"
+    >
         <template #sidebar>
             <ChatSidebar
                 v-model:api-base-url="apiBaseUrl"
@@ -316,8 +334,8 @@ const sendMessage = async (payload) => {
                 :can-create-conversation="canCreateConversation"
                 :is-guest="! isAuthenticated"
                 @commit-api-base-url="commitApiBaseUrl"
-                @select-conversation="store.selectConversation"
-                @create-conversation="store.createConversation"
+                @select-conversation="selectConversation"
+                @create-conversation="createConversation"
                 @rename-conversation="store.renameConversation"
                 @delete-conversation="store.deleteConversation"
             />

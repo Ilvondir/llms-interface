@@ -43,36 +43,36 @@ const logout = () => {
     >
         <Head :title="title" />
 
-        <header class="shrink-0 flex items-center justify-between gap-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 h-14">
-            <Link :href="route('home')" class="flex items-center gap-2 min-w-0">
+        <header class="flex h-14 shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-3 dark:border-gray-800 dark:bg-gray-900 sm:gap-4 sm:px-4">
+            <Link :href="route('home')" class="flex min-w-0 items-center gap-2">
                 <ApplicationMark class="block h-8 w-auto shrink-0" />
-                <span class="font-semibold text-sm truncate">LLMsInterface</span>
+                <span class="truncate text-sm font-semibold max-sm:hidden">LLMsInterface</span>
             </Link>
 
-            <nav class="flex items-center gap-3 text-sm">
+            <nav class="flex shrink-0 items-center gap-2 text-sm sm:gap-3">
                 <template v-if="user">
                     <Link
                         :href="route('home')"
-                        class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                     >
                         Chat
                     </Link>
                     <Link
                         :href="route('profile.show')"
-                        class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                     >
                         Profile
                     </Link>
                     <Link
                         v-if="page.props.jetstream?.hasApiFeatures"
                         :href="route('api-tokens.index')"
-                        class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        class="hidden text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white sm:inline"
                     >
                         API Tokens
                     </Link>
                     <button
                         type="button"
-                        class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                         @click="logout"
                     >
                         Log out
@@ -81,13 +81,13 @@ const logout = () => {
                 <template v-else>
                     <Link
                         :href="route('login')"
-                        class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        class="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
                     >
                         Log in
                     </Link>
                     <Link
                         :href="route('register')"
-                        class="rounded-md bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 px-3 py-1.5 font-medium hover:opacity-90"
+                        class="rounded-md bg-gray-900 px-2.5 py-1.5 font-medium text-white hover:opacity-90 dark:bg-gray-100 dark:text-gray-900 sm:px-3"
                     >
                         Register
                     </Link>

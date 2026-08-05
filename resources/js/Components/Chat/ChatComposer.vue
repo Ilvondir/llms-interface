@@ -124,7 +124,7 @@ const submit = () => {
 
 <template>
     <form
-        class="shrink-0 border-t border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3"
+        class="shrink-0 border-t border-gray-200 bg-white px-3 py-3 dark:border-gray-800 dark:bg-gray-900 sm:px-4"
         @submit.prevent="submit"
         @paste="onPaste"
     >
