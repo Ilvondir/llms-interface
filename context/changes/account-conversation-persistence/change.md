@@ -1,7 +1,7 @@
 ---
 change_id: account-conversation-persistence
 title: Account conversation persistence
-status: implementing
+status: impl_reviewed
 created: 2026-08-05
 updated: 2026-08-05
 archived_at: null

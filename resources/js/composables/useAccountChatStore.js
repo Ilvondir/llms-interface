@@ -1,5 +1,6 @@
 import { computed, reactive, readonly, watch } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
+import { useToast } from 'vue-toastification';
 import { csrfToken } from '@/composables/chatApi';
 
 const defaultParams = () => ({
@@ -71,6 +72,7 @@ const jsonRequest = async (method, url, data = {}) => {
  */
 export function useAccountChatStore(initialProps = {}) {
     const page = usePage();
+    const toast = useToast();
 
     const state = reactive({
         settings: emptySettings(),
@@ -81,7 +83,14 @@ export function useAccountChatStore(initialProps = {}) {
 
     let conversationPersistTimer = null;
     let settingsPersistTimer = null;
+    let mutationGeneration = 0;
     let lastPersistedApiBaseUrl = initialProps?.chatSettings?.apiBaseUrl ?? '';
+
+    const bumpMutationGeneration = () => {
+        mutationGeneration += 1;
+
+        return mutationGeneration;
+    };
 
     const applyProps = (props, { replaceMessages = true } = {}) => {
         const chatSettings = props?.chatSettings;
@@ -156,6 +165,174 @@ export function useAccountChatStore(initialProps = {}) {
         !! conversation && (conversation.messages?.length ?? 0) === 0 && ! state.pendingAssistant
     );
 
+    const notifyPersistError = (error) => {
+        const message = error?.message || 'Failed to save changes.';
+        toast.error(message);
+    };
+
+    const syncAfterJsonMutation = (props, { expectedConversationId = null } = {}) => {
+        if (expectedConversationId != null && state.activeConversation?.id != expectedConversationId) {
+            return;
+        }
+
+        if (props?.activeConversation && expectedConversationId != null
+            && props.activeConversation.id != expectedConversationId) {
+            return;
+        }
+
+        if (props?.chatSettings) {
+            lastPersistedApiBaseUrl = props.chatSettings.apiBaseUrl ?? lastPersistedApiBaseUrl;
+            state.settings.activeConversationId = props.chatSettings.activeConversationId
+                ?? state.settings.activeConversationId;
+            state.settings.defaultParams = {
+                ...defaultParams(),
+                ...(props.chatSettings.defaultParams ?? state.settings.defaultParams),
+            };
+            if (props.chatSettings.apiBaseUrl !== undefined) {
+                state.settings.apiBaseUrl = props.chatSettings.apiBaseUrl ?? state.settings.apiBaseUrl;
+            }
+        }
+
+        if (Array.isArray(props?.conversations)) {
+            state.conversations = props.conversations.map((conversation) => ({ ...conversation }));
+        }
+
+        if (props?.activeConversation && state.activeConversation) {
+            if (props.activeConversation.id != state.activeConversation.id) {
+                return;
+            }
+
+            state.activeConversation.id = props.activeConversation.id;
+            state.activeConversation.title = props.activeConversation.title;
+            state.activeConversation.createdAt = props.activeConversation.createdAt;
+            state.activeConversation.updatedAt = props.activeConversation.updatedAt;
+
+            if (props.activeConversation.systemPrompt !== undefined) {
+                state.activeConversation.systemPrompt = props.activeConversation.systemPrompt;
+            }
+
+            if (props.activeConversation.model !== undefined) {
+                state.activeConversation.model = props.activeConversation.model;
+            }
+
+            if (props.activeConversation.params) {
+                state.activeConversation.params = {
+                    ...defaultParams(),
+                    ...props.activeConversation.params,
+                };
+            }
+
+            state.settings.activeConversationId = props.activeConversation.id;
+        } else if (props?.activeConversation && ! state.activeConversation) {
+            applyProps(props);
+        }
+    };
+
+    const flushConversationPatch = async ({ scheduledForId = null, generation = null } = {}) => {
+        const conversation = state.activeConversation;
+
+        if (! conversation?.id) {
+            return;
+        }
+
+        if (scheduledForId != null && conversation.id != scheduledForId) {
+            return;
+        }
+
+        if (generation != null && generation !== mutationGeneration) {
+            return;
+        }
+
+        const expectedId = conversation.id;
+        const expectedGeneration = mutationGeneration;
+
+        try {
+            const props = await jsonRequest('PATCH', route('conversations.update', conversation.id), {
+                title: conversation.title,
+                system_prompt: conversation.systemPrompt ?? '',
+                model: conversation.model ?? '',
+                params: conversation.params ?? defaultParams(),
+            });
+
+            if (expectedGeneration !== mutationGeneration || state.activeConversation?.id != expectedId) {
+                return;
+            }
+
+            syncAfterJsonMutation(props, { expectedConversationId: expectedId });
+        } catch (error) {
+            if (expectedGeneration === mutationGeneration) {
+                notifyPersistError(error);
+            }
+
+            throw error;
+        }
+    };
+
+    const flushSettingsPatch = async ({ generation = null } = {}) => {
+        if (generation != null && generation !== mutationGeneration) {
+            return;
+        }
+
+        const expectedGeneration = mutationGeneration;
+        const expectedConversationId = state.activeConversation?.id ?? null;
+
+        try {
+            const props = await jsonRequest('PATCH', route('chat-settings.update'), {
+                default_params: state.settings.defaultParams,
+                api_base_url: state.settings.apiBaseUrl,
+                active_conversation_id: state.settings.activeConversationId,
+            });
+
+            if (expectedGeneration !== mutationGeneration) {
+                return;
+            }
+
+            syncAfterJsonMutation(props, { expectedConversationId });
+        } catch (error) {
+            if (expectedGeneration === mutationGeneration) {
+                notifyPersistError(error);
+            }
+
+            throw error;
+        }
+    };
+
+    const flushPendingPersists = async () => {
+        clearTimeout(conversationPersistTimer);
+        clearTimeout(settingsPersistTimer);
+        conversationPersistTimer = null;
+        settingsPersistTimer = null;
+
+        await Promise.allSettled([
+            flushConversationPatch(),
+            flushSettingsPatch(),
+        ]);
+    };
+
+    const prepareNavigation = async () => {
+        await flushPendingPersists();
+        bumpMutationGeneration();
+    };
+
+    const scheduleConversationPersist = () => {
+        clearTimeout(conversationPersistTimer);
+        const scheduledForId = state.activeConversation?.id ?? null;
+        const generation = mutationGeneration;
+
+        conversationPersistTimer = setTimeout(() => {
+            flushConversationPatch({ scheduledForId, generation }).catch(() => {});
+        }, 400);
+    };
+
+    const scheduleSettingsPersist = () => {
+        clearTimeout(settingsPersistTimer);
+        const generation = mutationGeneration;
+
+        settingsPersistTimer = setTimeout(() => {
+            flushSettingsPatch({ generation }).catch(() => {});
+        }, 400);
+    };
+
     const ensureConversationId = async () => {
         if (state.activeConversation?.id) {
             return state.activeConversation.id;
@@ -172,6 +349,7 @@ export function useAccountChatStore(initialProps = {}) {
             return state.activeConversation;
         }
 
+        await prepareNavigation();
         state.pendingAssistant = null;
         await inertiaVisit('post', route('conversations.store'));
 
@@ -187,6 +365,7 @@ export function useAccountChatStore(initialProps = {}) {
             return;
         }
 
+        await prepareNavigation();
         state.pendingAssistant = null;
         await inertiaVisit('get', route('conversations.show', id));
     };
@@ -195,10 +374,16 @@ export function useAccountChatStore(initialProps = {}) {
         const props = await jsonRequest('PATCH', route('conversations.update', id), {
             title: title.trim() || 'Untitled',
         });
-        applyProps(props);
+
+        if (state.activeConversation?.id == id || ! state.activeConversation) {
+            syncAfterJsonMutation(props, { expectedConversationId: id });
+        } else if (Array.isArray(props?.conversations)) {
+            state.conversations = props.conversations.map((conversation) => ({ ...conversation }));
+        }
     };
 
     const deleteConversation = async (id) => {
+        await prepareNavigation();
         state.pendingAssistant = null;
         await inertiaVisit('delete', route('conversations.destroy', id));
     };
@@ -214,75 +399,28 @@ export function useAccountChatStore(initialProps = {}) {
             return;
         }
 
-        const props = await jsonRequest('PATCH', route('chat-settings.update'), {
-            api_base_url: current,
-        });
-        syncAfterJsonMutation(props);
-        lastPersistedApiBaseUrl = current;
-    };
+        const expectedGeneration = mutationGeneration;
 
-    const syncAfterJsonMutation = (props) => {
-        if (props?.chatSettings) {
-            lastPersistedApiBaseUrl = props.chatSettings.apiBaseUrl ?? lastPersistedApiBaseUrl;
-            state.settings.activeConversationId = props.chatSettings.activeConversationId ?? state.settings.activeConversationId;
-            state.settings.defaultParams = {
-                ...defaultParams(),
-                ...(props.chatSettings.defaultParams ?? state.settings.defaultParams),
-            };
+        try {
+            const props = await jsonRequest('PATCH', route('chat-settings.update'), {
+                api_base_url: current,
+            });
+
+            if (expectedGeneration !== mutationGeneration) {
+                return;
+            }
+
+            syncAfterJsonMutation(props, {
+                expectedConversationId: state.activeConversation?.id ?? null,
+            });
+            lastPersistedApiBaseUrl = current;
+        } catch (error) {
+            if (expectedGeneration === mutationGeneration) {
+                notifyPersistError(error);
+            }
+
+            throw error;
         }
-
-        if (Array.isArray(props?.conversations)) {
-            state.conversations = props.conversations.map((conversation) => ({ ...conversation }));
-        }
-
-        if (props?.activeConversation && state.activeConversation) {
-            state.activeConversation.id = props.activeConversation.id;
-            state.activeConversation.title = props.activeConversation.title;
-            state.activeConversation.createdAt = props.activeConversation.createdAt;
-            state.activeConversation.updatedAt = props.activeConversation.updatedAt;
-            state.settings.activeConversationId = props.activeConversation.id;
-        } else if (props?.activeConversation && ! state.activeConversation) {
-            applyProps(props);
-        }
-    };
-
-    const flushConversationPatch = async () => {
-        const conversation = state.activeConversation;
-
-        if (! conversation?.id) {
-            return;
-        }
-
-        const props = await jsonRequest('PATCH', route('conversations.update', conversation.id), {
-            title: conversation.title,
-            system_prompt: conversation.systemPrompt ?? '',
-            model: conversation.model ?? '',
-            params: conversation.params ?? defaultParams(),
-        });
-        syncAfterJsonMutation(props);
-    };
-
-    const flushSettingsPatch = async () => {
-        const props = await jsonRequest('PATCH', route('chat-settings.update'), {
-            default_params: state.settings.defaultParams,
-            api_base_url: state.settings.apiBaseUrl,
-            active_conversation_id: state.settings.activeConversationId,
-        });
-        syncAfterJsonMutation(props);
-    };
-
-    const scheduleConversationPersist = () => {
-        clearTimeout(conversationPersistTimer);
-        conversationPersistTimer = setTimeout(() => {
-            flushConversationPatch().catch(() => {});
-        }, 400);
-    };
-
-    const scheduleSettingsPersist = () => {
-        clearTimeout(settingsPersistTimer);
-        settingsPersistTimer = setTimeout(() => {
-            flushSettingsPatch().catch(() => {});
-        }, 400);
     };
 
     const ensureLocalConversation = async () => {
@@ -417,8 +555,7 @@ export function useAccountChatStore(initialProps = {}) {
             return pending;
         }
 
-        clearTimeout(conversationPersistTimer);
-        await flushConversationPatch();
+        await flushPendingPersists();
 
         const conversationId = await ensureConversationId();
 

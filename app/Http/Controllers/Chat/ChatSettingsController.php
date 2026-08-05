@@ -40,17 +40,17 @@ class ChatSettingsController extends Controller
         $active = null;
 
         if ($settings->active_conversation_id) {
-            $active = $user->conversations()
-                ->with(['prompts' => fn ($query) => $query->orderBy('position')])
-                ->find($settings->active_conversation_id);
+            $active = $user->conversations()->find($settings->active_conversation_id);
         }
-
-        $props = $this->presenter->props($user, $active);
 
         if ($request->wantsJson()) {
-            return response()->json($props);
+            return response()->json($this->presenter->fieldMutationProps($user, $active));
         }
 
-        return Inertia::render('Chat/Index', $props);
+        if ($active !== null) {
+            $active->load(['prompts' => fn ($query) => $query->orderBy('position')]);
+        }
+
+        return Inertia::render('Chat/Index', $this->presenter->props($user, $active));
     }
 }

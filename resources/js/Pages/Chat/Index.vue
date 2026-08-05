@@ -33,12 +33,16 @@ const toast = useToast();
 const page = usePage();
 const isAuthenticated = computed(() => !! page.props.auth?.user);
 
-const guestStore = useGuestChatStore();
-const accountStore = useAccountChatStore({
-    chatSettings: props.chatSettings,
-    conversations: props.conversations,
-    activeConversation: props.activeConversation,
-});
+// Only construct the store for the current auth mode so guests never hit account
+// fetch paths and authenticated sessions never read/write llms.guest.v1.
+const guestStore = isAuthenticated.value ? null : useGuestChatStore();
+const accountStore = isAuthenticated.value
+    ? useAccountChatStore({
+        chatSettings: props.chatSettings,
+        conversations: props.conversations,
+        activeConversation: props.activeConversation,
+    })
+    : null;
 
 const store = computed(() => (isAuthenticated.value ? accountStore : guestStore));
 

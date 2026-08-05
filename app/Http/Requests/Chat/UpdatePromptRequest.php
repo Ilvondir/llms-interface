@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests\Chat;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdatePromptRequest extends FormRequest
 {
@@ -12,15 +14,15 @@ class UpdatePromptRequest extends FormRequest
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'content' => ['sometimes', 'string'],
-            'reasoning' => ['sometimes', 'nullable', 'string'],
+            'content' => ['sometimes', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
+            'reasoning' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
             'stats' => ['sometimes', 'nullable', 'array'],
-            'error' => ['sometimes', 'nullable', 'string'],
+            'error' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_ERROR_CHARS],
             'model' => ['sometimes', 'nullable', 'string', 'max:255'],
             'params' => ['sometimes', 'nullable', 'array'],
             'params.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
@@ -30,5 +32,31 @@ class UpdatePromptRequest extends FormRequest
             'received_at' => ['sometimes', 'nullable', 'integer', 'min:0'],
             'request_payload' => ['sometimes', 'nullable', 'array'],
         ];
+    }
+
+    /**
+     * @return array<int, callable(Validator): void>
+     */
+    public function after(): array
+    {
+        return [
+            function (Validator $validator): void {
+                $this->rejectOversizedJson($validator, 'stats');
+                $this->rejectOversizedJson($validator, 'request_payload');
+            },
+        ];
+    }
+
+    private function rejectOversizedJson(Validator $validator, string $field): void
+    {
+        if (! $this->exists($field) || $this->input($field) === null) {
+            return;
+        }
+
+        $encoded = json_encode($this->input($field));
+
+        if ($encoded !== false && strlen($encoded) > StorePromptRequest::MAX_JSON_BYTES) {
+            $validator->errors()->add($field, "The {$field} field must not exceed ".StorePromptRequest::MAX_JSON_BYTES.' bytes when encoded as JSON.');
+        }
     }
 }

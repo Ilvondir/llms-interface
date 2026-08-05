@@ -54,15 +54,15 @@ class ConversationController extends Controller
                 : $conversation->params,
         ])->save();
 
-        $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
-
-        $props = $this->presenter->props($request->user(), $conversation);
-
         if ($request->wantsJson()) {
-            return response()->json($props);
+            return response()->json(
+                $this->presenter->fieldMutationProps($request->user(), $conversation),
+            );
         }
 
-        return Inertia::render('Chat/Index', $props);
+        $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
+
+        return Inertia::render('Chat/Index', $this->presenter->props($request->user(), $conversation));
     }
 
     public function destroy(Conversation $conversation): RedirectResponse

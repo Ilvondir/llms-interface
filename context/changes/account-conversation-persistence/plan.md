@@ -23,12 +23,18 @@ Po zalogowaniu lub rejestracji użytkownik pracuje wyłącznie na DB: lista rozm
 - Po loginie **bez** auto-importu guest→DB (decyzja 4B); światy rozdzielone.
 - PK: bigint `$table->id()` jak reszta app; ownership = `user_id` (teams off).
 
+### Addendum (impl review 2026-08-05)
+
+- **Hybrid transport (amends 5A):** nawigacja (select / create / delete) zostaje na Inertia; mutacje pól rozmowy, ustawień i promptów idą przez `fetch` + JSON (`Accept: application/json`), bo pełne wizyty Inertia przy debounce psuły focus/remount podczas edycji system promptu. Kontrolery mają dual response (`wantsJson()` vs Inertia render).
+- Field/settings JSON ack zwraca slim props (bez `messages`); pełny wątek wraca po mutacjach promptów.
+- Debounced PATCH: epoch + flush przed nawigacją; toast przy błędzie zapisu; auth nie inicjuje guest `localStorage`.
+
 ## Czego NIE robimy
 
 - Auto-migracja / merge localStorage → konto.
 - Zmiana publicznego proxy LLM (auth na stream/models).
 - Vision (S-03), RAG, teams, soft deletes, UUID jako PK.
-- Osobny JSON REST obok Inertia dla CRUD (wybrano Inertia).
+- Osobny publiczny JSON REST API (poza dual-response na tych samych trasach Inertia/auth).
 - E2E Playwright w tej zmianie.
 - TTL 1 dzień na rozmowach konta (TTL dotyczy tylko guest store).
 
@@ -341,33 +347,33 @@ Domknięcie guardrailów PRD w CI zgodnie z decyzją 8B.
 
 #### Manual
 
-- [x] 2.7 Auth reload zachowuje rozmowy z DB
-- [x] 2.8 Inertia select rozmowy ładuje właściwy wątek
-- [x] 2.9 Guest smoke: brak wierszy DB po użyciu UI
+- [x] 2.7 Auth reload zachowuje rozmowy z DB — c40b961
+- [x] 2.8 Inertia select rozmowy ładuje właściwy wątek — c40b961
+- [x] 2.9 Guest smoke: brak wierszy DB po użyciu UI — c40b961
 
 ### Faza 3: Front — branch auth vs guest
 
 #### Automated
 
-- [x] 3.1 `npm run build` sukces
-- [x] 3.2 Regresja Feature stream/models
+- [x] 3.1 `npm run build` sukces — c40b961
+- [x] 3.2 Regresja Feature stream/models — c40b961
 
 #### Manual
 
-- [x] 3.3 Guest flow S-01 bez regresji
-- [x] 3.4 Auth multi-conv CRUD + reload z DB
-- [x] 3.5 Auth zapis user+assistant (reasoning/stats/params/requestPayload)
-- [x] 3.6 Auth partial+error mid-stream zapisane
-- [x] 3.7 Follow-up bez reasoning w historii upstream
-- [x] 3.8 Po loginie brak auto-importu guest store
+- [x] 3.3 Guest flow S-01 bez regresji — c40b961
+- [x] 3.4 Auth multi-conv CRUD + reload z DB — c40b961
+- [x] 3.5 Auth zapis user+assistant (reasoning/stats/params/requestPayload) — c40b961
+- [x] 3.6 Auth partial+error mid-stream zapisane — c40b961
+- [x] 3.7 Follow-up bez reasoning w historii upstream — c40b961
+- [x] 3.8 Po loginie brak auto-importu guest store — c40b961
 
 ### Faza 4: Testy Feature dual-path
 
 #### Automated
 
-- [ ] 4.1 Filtr testów Chat/Account zielony
-- [ ] 4.2 Pint dirty
-- [ ] 4.3 `npm run build` sukces
+- [x] 4.1 Filtr testów Chat/Account zielony
+- [x] 4.2 Pint dirty
+- [x] 4.3 `npm run build` sukces
 
 #### Manual
 

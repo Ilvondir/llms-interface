@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Chat;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateChatSettingsRequest extends FormRequest
 {
@@ -22,7 +23,14 @@ class UpdateChatSettingsRequest extends FormRequest
             'default_params.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
             'default_params.max_tokens' => ['nullable', 'integer', 'min:1'],
             'default_params.top_p' => ['nullable', 'numeric', 'min:0', 'max:1'],
-            'active_conversation_id' => ['sometimes', 'nullable', 'integer', 'exists:conversations,id'],
+            'active_conversation_id' => [
+                'sometimes',
+                'nullable',
+                'integer',
+                Rule::exists('conversations', 'id')->where(
+                    fn ($query) => $query->where('user_id', $this->user()->id),
+                ),
+            ],
         ];
     }
 }

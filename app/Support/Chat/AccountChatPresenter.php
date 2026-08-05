@@ -43,7 +43,7 @@ class AccountChatPresenter
      *     activeConversation: array<string, mixed>|null
      * }
      */
-    public function props(User $user, ?Conversation $active = null): array
+    public function props(User $user, ?Conversation $active = null, bool $includeMessages = true): array
     {
         $settings = $this->settingsFor($user);
 
@@ -52,19 +52,26 @@ class AccountChatPresenter
             ->get(['id', 'title', 'updated_at', 'created_at', 'model']);
 
         if ($active === null && $settings->active_conversation_id) {
-            $active = $user->conversations()
-                ->with(['prompts' => fn ($query) => $query->orderBy('position')])
-                ->find($settings->active_conversation_id);
+            $activeQuery = $user->conversations();
+
+            if ($includeMessages) {
+                $activeQuery->with(['prompts' => fn ($query) => $query->orderBy('position')]);
+            }
+
+            $active = $activeQuery->find($settings->active_conversation_id);
         }
 
         if ($active === null) {
-            $active = $user->conversations()
-                ->with(['prompts' => fn ($query) => $query->orderBy('position')])
-                ->orderByDesc('updated_at')
-                ->first();
+            $activeQuery = $user->conversations()->orderByDesc('updated_at');
+
+            if ($includeMessages) {
+                $activeQuery->with(['prompts' => fn ($query) => $query->orderBy('position')]);
+            }
+
+            $active = $activeQuery->first();
         }
 
-        if ($active !== null && $active->relationLoaded('prompts') === false) {
+        if ($includeMessages && $active !== null && $active->relationLoaded('prompts') === false) {
             $active->load(['prompts' => fn ($query) => $query->orderBy('position')]);
         }
 
@@ -78,8 +85,26 @@ class AccountChatPresenter
                 ->map(fn (Conversation $conversation) => $this->presentConversationSummary($conversation))
                 ->values()
                 ->all(),
-            'activeConversation' => $active ? $this->presentConversation($active) : null,
+            'activeConversation' => $active
+                ? ($includeMessages
+                    ? $this->presentConversation($active)
+                    : $this->presentConversationFields($active))
+                : null,
         ];
+    }
+
+    /**
+     * Slim props for field/settings JSON patches — no prompt rows loaded.
+     *
+     * @return array{
+     *     chatSettings: array<string, mixed>,
+     *     conversations: list<array<string, mixed>>,
+     *     activeConversation: array<string, mixed>|null
+     * }
+     */
+    public function fieldMutationProps(User $user, ?Conversation $active = null): array
+    {
+        return $this->props($user, $active, includeMessages: false);
     }
 
     /**
@@ -109,6 +134,24 @@ class AccountChatPresenter
     }
 
     /**
+     * Conversation fields without messages (for debounced field/settings JSON acks).
+     *
+     * @return array<string, mixed>
+     */
+    public function presentConversationFields(Conversation $conversation): array
+    {
+        return [
+            'id' => $conversation->id,
+            'title' => $conversation->title,
+            'systemPrompt' => $conversation->system_prompt ?? '',
+            'model' => $conversation->model ?? '',
+            'params' => array_merge(self::defaultParams(), $conversation->params ?? []),
+            'createdAt' => optional($conversation->created_at)->getTimestamp() * 1000,
+            'updatedAt' => optional($conversation->updated_at)->getTimestamp() * 1000,
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function presentConversation(Conversation $conversation): array
@@ -119,13 +162,7 @@ class AccountChatPresenter
             : $conversation->prompts()->orderBy('position')->get();
 
         return [
-            'id' => $conversation->id,
-            'title' => $conversation->title,
-            'systemPrompt' => $conversation->system_prompt ?? '',
-            'model' => $conversation->model ?? '',
-            'params' => array_merge(self::defaultParams(), $conversation->params ?? []),
-            'createdAt' => optional($conversation->created_at)->getTimestamp() * 1000,
-            'updatedAt' => optional($conversation->updated_at)->getTimestamp() * 1000,
+            ...$this->presentConversationFields($conversation),
             'messages' => $prompts
                 ->map(fn (Prompt $prompt) => $this->presentPrompt($prompt))
                 ->values()
