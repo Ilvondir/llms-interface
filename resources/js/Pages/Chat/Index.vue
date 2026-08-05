@@ -12,7 +12,9 @@ import { useChatStream } from '@/composables/useChatStream';
 import { GUEST_DRAFT_ID, useGuestChatStore } from '@/composables/useGuestChatStore';
 import { splitThinkTaggedContent } from '@/utils/assistantOutput';
 import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
+import { contentPlainText, isContentEmpty } from '@/utils/contentParts';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
+import { buildUserMessageContent } from '@/utils/imageAttach';
 
 const props = defineProps({
     chatSettings: {
@@ -124,16 +126,18 @@ const historyForModel = () => (
     (store.value.activeConversation.value?.messages ?? [])
         .filter((message) => message.role === 'user' || message.role === 'assistant')
         .map((message) => {
-            const content = message.role === 'assistant'
-                ? splitThinkTaggedContent(message.content).content
-                : message.content;
+            let content = message.content;
+
+            if (message.role === 'assistant' && typeof content === 'string') {
+                content = splitThinkTaggedContent(content).content;
+            }
 
             return {
                 role: message.role,
                 content,
             };
         })
-        .filter((message) => typeof message.content === 'string' && message.content.trim() !== '')
+        .filter((message) => ! isContentEmpty(message.content))
 );
 
 const commitApiBaseUrl = async (rawUrl, { persist = true } = {}) => {
@@ -161,7 +165,22 @@ onMounted(() => {
     }
 });
 
-const sendMessage = async (content) => {
+const sendMessage = async (payload) => {
+    const text = typeof payload === 'string' ? payload : (payload?.text ?? '');
+    const imageDataUrl = typeof payload === 'string' ? null : (payload?.imageDataUrl ?? null);
+
+    if (! isAuthenticated.value && imageDataUrl) {
+        toast.info('Sign in to send images.');
+
+        return;
+    }
+
+    const content = buildUserMessageContent({ text, imageDataUrl });
+
+    if (content == null) {
+        return;
+    }
+
     if (! apiBaseUrl.value?.trim()) {
         toast.error('Set an API URL first.');
 
@@ -210,7 +229,7 @@ const sendMessage = async (content) => {
     });
 
     const enrichStats = (stats) => {
-        const questionTokens = estimateTokenCount(content);
+        const questionTokens = estimateTokenCount(contentPlainText(content));
         const promptTokensEstimated = estimatePromptTokens({
             systemPrompt: systemPrompt.value,
             messages: outboundMessages,
@@ -307,10 +326,12 @@ const sendMessage = async (content) => {
         <MessageThread
             :messages="messages"
             :thinking-message-id="thinkingMessageId"
+            :conversation-id="activeConversationId"
         />
         <ChatComposer
             :disabled="isStreaming"
             :streaming="isStreaming"
+            :allow-attachments="isAuthenticated"
             @send="sendMessage"
             @stop="cancel"
         />

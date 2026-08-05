@@ -178,7 +178,7 @@ class AccountChatPresenter
         $message = [
             'id' => $prompt->id,
             'role' => $prompt->role,
-            'content' => $prompt->content,
+            'content' => MessageContent::decodeFromStorage($prompt->content),
             'createdAt' => optional($prompt->created_at)->getTimestamp() * 1000,
             'position' => $prompt->position,
         ];

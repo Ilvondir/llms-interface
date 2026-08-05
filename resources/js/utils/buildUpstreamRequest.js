@@ -1,9 +1,11 @@
+import { isContentEmpty, normalizeMessageContent } from './contentParts.js';
+
 /**
  * Mirror of App\Services\Llm\ChatHistoryComposer for client-side request inspection.
  *
  * @param {string|null|undefined} systemPrompt
- * @param {Array<{ role: string, content: string }>} messages
- * @returns {Array<{ role: string, content: string }>}
+ * @param {Array<{ role: string, content: string|Array<Record<string, unknown>> }>} messages
+ * @returns {Array<{ role: string, content: string|Array<Record<string, unknown>> }>}
  */
 export function composeModelMessages(systemPrompt, messages) {
     const composed = [];
@@ -18,9 +20,9 @@ export function composeModelMessages(systemPrompt, messages) {
 
     for (const message of messages ?? []) {
         const role = message?.role;
-        const content = String(message?.content ?? '').trim();
+        const content = normalizeMessageContent(message?.content);
 
-        if (! ['system', 'user', 'assistant'].includes(role) || content === '') {
+        if (! ['system', 'user', 'assistant'].includes(role) || content === null || isContentEmpty(content)) {
             continue;
         }
 
@@ -41,7 +43,7 @@ export function composeModelMessages(systemPrompt, messages) {
  * @param {{
  *   model: string,
  *   systemPrompt?: string|null,
- *   messages: Array<{ role: string, content: string }>,
+ *   messages: Array<{ role: string, content: string|Array<Record<string, unknown>> }>,
  *   temperature?: number|null,
  *   topP?: number|null,
  *   maxTokens?: number|null,

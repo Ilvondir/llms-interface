@@ -2,11 +2,13 @@
 
 namespace App\Services\Llm;
 
+use App\Support\Chat\MessageContent;
+
 class ChatHistoryComposer
 {
     /**
      * @param  array<int, array<string, mixed>>  $messages
-     * @return array<int, array{role: string, content: string}>
+     * @return array<int, array{role: string, content: string|list<array<string, mixed>>}>
      */
     public function compose(?string $systemPrompt, array $messages): array
     {
@@ -23,9 +25,9 @@ class ChatHistoryComposer
 
         foreach ($messages as $message) {
             $role = $message['role'] ?? null;
-            $content = trim((string) ($message['content'] ?? ''));
+            $content = MessageContent::normalize($message['content'] ?? null);
 
-            if (! in_array($role, ['system', 'user', 'assistant'], true) || $content === '') {
+            if (! in_array($role, ['system', 'user', 'assistant'], true) || $content === null) {
                 continue;
             }
 

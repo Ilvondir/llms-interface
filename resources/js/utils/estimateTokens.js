@@ -2,11 +2,21 @@
  * Rough token estimate (≈4 characters / token). Not a real tokenizer —
  * good enough to compare "this message" vs full prompt size.
  *
- * @param {string|null|undefined} text
+ * @param {string|Array|null|undefined} text
  * @returns {number}
  */
 export function estimateTokenCount(text) {
-    const value = String(text ?? '').trim();
+    let value = '';
+
+    if (typeof text === 'string') {
+        value = text.trim();
+    } else if (Array.isArray(text)) {
+        value = text
+            .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+            .map((part) => part.text.trim())
+            .filter(Boolean)
+            .join(' ');
+    }
 
     if (value === '') {
         return 0;

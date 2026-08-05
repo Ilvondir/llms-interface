@@ -5,6 +5,7 @@ namespace Tests\Feature\Chat;
 use App\Models\Conversation;
 use App\Models\Prompt;
 use App\Models\User;
+use App\Support\Chat\ChatContentLimits;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
 use Tests\TestCase;
@@ -100,7 +101,7 @@ class AccountConversationOwnershipTest extends TestCase
         $this->actingAs($user)
             ->postJson(route('conversations.prompts.store', $conversation), [
                 'role' => 'user',
-                'content' => str_repeat('a', 100_001),
+                'content' => str_repeat('a', ChatContentLimits::MAX_CONTENT_CHARS + 1),
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['content']);

@@ -1,10 +1,12 @@
 <script setup>
+import { nextTick, ref, watch } from 'vue';
 import AssistantMessageMenu from '@/Components/Chat/AssistantMessageMenu.vue';
 import MarkdownContent from '@/Components/Chat/MarkdownContent.vue';
 import ReasoningBlock from '@/Components/Chat/ReasoningBlock.vue';
 import ResponseStats from '@/Components/Chat/ResponseStats.vue';
+import { contentPlainText } from '@/utils/contentParts';
 
-defineProps({
+const props = defineProps({
     messages: {
         type: Array,
         default: () => [],
@@ -13,11 +15,82 @@ defineProps({
         type: String,
         default: null,
     },
+    conversationId: {
+        type: [Number, String],
+        default: null,
+    },
 });
+
+const threadEl = ref(null);
+const bottomEl = ref(null);
+
+const imageUrls = (content) => {
+    if (! Array.isArray(content)) {
+        return [];
+    }
+
+    return content
+        .filter((part) => part?.type === 'image_url' && typeof part.image_url?.url === 'string')
+        .map((part) => part.image_url.url);
+};
+
+const textContent = (content) => {
+    if (typeof content === 'string') {
+        return content;
+    }
+
+    return contentPlainText(content);
+};
+
+const scrollToEnd = async () => {
+    await nextTick();
+
+    if (bottomEl.value) {
+        bottomEl.value.scrollIntoView({ block: 'end', behavior: 'auto' });
+
+        return;
+    }
+
+    if (threadEl.value) {
+        threadEl.value.scrollTop = threadEl.value.scrollHeight;
+    }
+};
+
+const onImageLoad = () => {
+    scrollToEnd();
+};
+
+watch(
+    () => props.conversationId,
+    () => {
+        scrollToEnd();
+        // Images decode async and grow height — pin to end again shortly after.
+        requestAnimationFrame(() => scrollToEnd());
+        setTimeout(() => scrollToEnd(), 100);
+        setTimeout(() => scrollToEnd(), 400);
+    },
+    { immediate: true },
+);
+
+watch(
+    () => [
+        props.messages.length,
+        props.messages.at(-1)?.id,
+        props.messages.at(-1)?.content,
+        props.messages.at(-1)?.reasoning,
+        props.thinkingMessageId,
+    ],
+    () => {
+        scrollToEnd();
+    },
+);
 </script>
 
 <template>
-    <div class="chat-scroll flex-1 overflow-y-auto px-4 py-6">
+    <div
+        ref="threadEl"
+        class="chat-scroll flex-1 overflow-y-auto px-4 py-6"
+    >
         <div
             v-if="messages.length === 0"
             class="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400"
@@ -25,7 +98,10 @@ defineProps({
             Send a message to start the conversation.
         </div>
 
-        <div v-else class="mx-auto max-w-3xl space-y-4">
+        <div
+            v-else
+            class="mx-auto max-w-3xl space-y-4"
+        >
             <div
                 v-for="message in messages"
                 :key="message.id"
@@ -61,6 +137,28 @@ defineProps({
                     :content="message.content"
                 />
                 <div
+                    v-else-if="message.role === 'user'"
+                    class="space-y-2"
+                >
+                    <div
+                        v-for="(url, index) in imageUrls(message.content)"
+                        :key="`${message.id}-img-${index}`"
+                    >
+                        <img
+                            :src="url"
+                            alt="User attachment"
+                            class="max-h-64 max-w-full rounded-md object-contain"
+                            @load="onImageLoad"
+                        >
+                    </div>
+                    <div
+                        v-if="textContent(message.content)"
+                        class="text-sm whitespace-pre-wrap"
+                    >
+                        {{ textContent(message.content) }}
+                    </div>
+                </div>
+                <div
                     v-else-if="message.content"
                     class="text-sm whitespace-pre-wrap"
                 >
@@ -77,6 +175,10 @@ defineProps({
                     :stats="message.stats"
                 />
             </div>
+            <div
+                ref="bottomEl"
+                aria-hidden="true"
+            />
         </div>
     </div>
 </template>

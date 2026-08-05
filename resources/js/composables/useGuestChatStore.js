@@ -318,6 +318,10 @@ export function useGuestChatStore() {
         receivedAt = null,
         requestPayload = null,
     }) => {
+        if (Array.isArray(content)) {
+            throw new Error('Guest chat does not support image attachments.');
+        }
+
         const conversation = ensureActiveConversation();
 
         if (role === 'user') {

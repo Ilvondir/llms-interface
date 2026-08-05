@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Chat;
 
+use App\Rules\Chat\MessageContentRule;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -19,7 +20,7 @@ class UpdatePromptRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'content' => ['sometimes', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
+            'content' => ['sometimes', new MessageContentRule],
             'reasoning' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
             'stats' => ['sometimes', 'nullable', 'array'],
             'error' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_ERROR_CHARS],

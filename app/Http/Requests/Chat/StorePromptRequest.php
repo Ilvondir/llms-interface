@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Chat;
 
+use App\Rules\Chat\MessageContentRule;
+use App\Support\Chat\ChatContentLimits;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -9,11 +11,13 @@ use Illuminate\Validation\Validator;
 
 class StorePromptRequest extends FormRequest
 {
-    public const MAX_TEXT_CHARS = 100_000;
+    public const MAX_TEXT_CHARS = ChatContentLimits::MAX_TEXT_CHARS;
+
+    public const MAX_CONTENT_CHARS = ChatContentLimits::MAX_CONTENT_CHARS;
 
     public const MAX_ERROR_CHARS = 10_000;
 
-    public const MAX_JSON_BYTES = 100_000;
+    public const MAX_JSON_BYTES = ChatContentLimits::MAX_JSON_BYTES;
 
     public function authorize(): bool
     {
@@ -27,7 +31,7 @@ class StorePromptRequest extends FormRequest
     {
         return [
             'role' => ['required', 'string', Rule::in(['user', 'assistant'])],
-            'content' => ['required', 'string', 'max:'.self::MAX_TEXT_CHARS],
+            'content' => ['required', new MessageContentRule],
             'reasoning' => ['nullable', 'string', 'max:'.self::MAX_TEXT_CHARS],
             'stats' => ['nullable', 'array'],
             'error' => ['nullable', 'string', 'max:'.self::MAX_ERROR_CHARS],

@@ -2,6 +2,7 @@ import { computed, reactive, readonly, watch } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import { csrfToken } from '@/composables/chatApi';
+import { contentPlainText, isContentEmpty, sanitizeRequestPayloadForStorage } from '@/utils/contentParts';
 
 const defaultParams = () => ({
     temperature: 0.7,
@@ -590,7 +591,8 @@ export function useAccountChatStore(initialProps = {}) {
 
         await flushPendingPersists();
 
-        const titleFromPrompt = content.trim().slice(0, 48) || 'New chat';
+        const plain = contentPlainText(content);
+        const titleFromPrompt = (plain.trim().slice(0, 48) || (Array.isArray(content) ? 'Image' : 'New chat'));
         const conversationId = await ensureConversationId({ title: titleFromPrompt });
 
         const props = await jsonRequest('POST', route('conversations.prompts.store', conversationId), {
@@ -598,7 +600,9 @@ export function useAccountChatStore(initialProps = {}) {
             content,
             sent_at: sentAt,
             model,
-            request_payload: requestPayload,
+            request_payload: requestPayload != null
+                ? sanitizeRequestPayloadForStorage(requestPayload)
+                : null,
         });
         applyProps(props);
 
@@ -632,7 +636,9 @@ export function useAccountChatStore(initialProps = {}) {
                 params: pending.params ?? state.activeConversation?.params ?? defaultParams(),
                 sent_at: pending.sentAt ?? null,
                 received_at: pending.receivedAt ?? null,
-                request_payload: pending.requestPayload ?? null,
+                request_payload: pending.requestPayload != null
+                    ? sanitizeRequestPayloadForStorage(pending.requestPayload)
+                    : null,
             });
             state.pendingAssistant = null;
             applyProps(props);
@@ -667,7 +673,9 @@ export function useAccountChatStore(initialProps = {}) {
             params: message.params ?? null,
             sent_at: message.sentAt ?? null,
             received_at: message.receivedAt ?? null,
-            request_payload: message.requestPayload ?? null,
+            request_payload: message.requestPayload != null
+                ? sanitizeRequestPayloadForStorage(message.requestPayload)
+                : null,
         });
         applyProps(props);
     };
@@ -707,7 +715,7 @@ export function useAccountChatStore(initialProps = {}) {
             }
 
             for (const message of conversation.messages ?? []) {
-                if (! message?.content || (message.role !== 'user' && message.role !== 'assistant')) {
+                if (isContentEmpty(message?.content) || (message.role !== 'user' && message.role !== 'assistant')) {
                     continue;
                 }
 

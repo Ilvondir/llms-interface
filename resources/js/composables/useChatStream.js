@@ -1,6 +1,7 @@
 import { ref } from 'vue';
 import { csrfToken } from '@/composables/chatApi';
 import { mergeReasoning, isReasoningPhaseActive, splitThinkTaggedContent } from '@/utils/assistantOutput';
+import { extractStreamErrorMessage, mapVisionStreamError } from '@/utils/visionStreamError';
 
 const readDeltaText = (delta) => {
     if (! delta || typeof delta !== 'object') {
@@ -177,13 +178,23 @@ export function useChatStream() {
                 let message = `Stream failed (${response.status})`;
 
                 try {
-                    const errorPayload = await response.json();
-                    message = errorPayload.message || message;
+                    const contentType = response.headers.get('Content-Type') ?? '';
+                    const rawBody = await response.text();
+
+                    if (contentType.includes('application/json')) {
+                        try {
+                            message = extractStreamErrorMessage(JSON.parse(rawBody), message);
+                        } catch {
+                            message = extractStreamErrorMessage(rawBody, message);
+                        }
+                    } else {
+                        message = extractStreamErrorMessage(rawBody, message);
+                    }
                 } catch {
-                    // ignore non-JSON error bodies
+                    // keep status fallback
                 }
 
-                throw new Error(message);
+                throw new Error(mapVisionStreamError(message));
             }
 
             if (! response.body) {
@@ -271,7 +282,8 @@ export function useChatStream() {
                 onThinking?.(false);
                 await onFinish?.({ content, reasoning, stats: null, aborted: true });
             } else {
-                const message = error instanceof Error ? error.message : 'Stream failed';
+                const rawMessage = error instanceof Error ? error.message : 'Stream failed';
+                const message = mapVisionStreamError(rawMessage);
                 streamError.value = message;
                 ({ content, reasoning } = publish());
                 onThinking?.(false);
