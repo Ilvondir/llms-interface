@@ -1,13 +1,15 @@
 <?php
 
 use App\Http\Controllers\Chat\ChatModelsController;
+use App\Http\Controllers\Chat\ChatPageController;
+use App\Http\Controllers\Chat\ChatSettingsController;
 use App\Http\Controllers\Chat\ChatStreamController;
+use App\Http\Controllers\Chat\ConversationController;
+use App\Http\Controllers\Chat\PromptController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
-Route::get('/', function () {
-    return Inertia::render('Chat/Index');
-})->name('home');
+Route::get('/', [ChatPageController::class, 'home'])->name('home');
 
 Route::post('/chat/stream', ChatStreamController::class)
     ->middleware('throttle:llms-chat')
@@ -25,4 +27,26 @@ Route::middleware([
     Route::get('/dashboard', function () {
         return Inertia::render('Dashboard');
     })->name('dashboard');
+
+    Route::get('/conversations/{conversation}', [ChatPageController::class, 'show'])
+        ->name('conversations.show');
+
+    Route::post('/conversations', [ConversationController::class, 'store'])
+        ->name('conversations.store');
+
+    Route::patch('/conversations/{conversation}', [ConversationController::class, 'update'])
+        ->name('conversations.update');
+
+    Route::delete('/conversations/{conversation}', [ConversationController::class, 'destroy'])
+        ->name('conversations.destroy');
+
+    Route::patch('/chat-settings', [ChatSettingsController::class, 'update'])
+        ->name('chat-settings.update');
+
+    Route::post('/conversations/{conversation}/prompts', [PromptController::class, 'store'])
+        ->name('conversations.prompts.store');
+
+    Route::patch('/conversations/{conversation}/prompts/{prompt}', [PromptController::class, 'update'])
+        ->scopeBindings()
+        ->name('conversations.prompts.update');
 });

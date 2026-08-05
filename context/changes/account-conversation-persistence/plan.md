@@ -319,25 +319,25 @@ Domknięcie guardrailów PRD w CI zgodnie z decyzją 8B.
 
 #### Automated
 
-- [x] 1.1 Migracje stosują się czysto (`migrate --no-interaction`)
-- [x] 1.2 Factory smoke Conversation/Prompt dla User
-- [x] 1.3 Pint dirty na PHP Fazy 1
+- [x] 1.1 Migracje stosują się czysto (`migrate --no-interaction`) — 7413afc
+- [x] 1.2 Factory smoke Conversation/Prompt dla User — 7413afc
+- [x] 1.3 Pint dirty na PHP Fazy 1 — 7413afc
 
 #### Manual
 
-- [x] 1.4 Schema kolumn zgodna z kontraktem (conversations/prompts/settings)
-- [x] 1.5 Cascade delete user → conversations/prompts
+- [x] 1.4 Schema kolumn zgodna z kontraktem (conversations/prompts/settings) — 7413afc
+- [x] 1.5 Cascade delete user → conversations/prompts — 7413afc
 
 ### Faza 2: Inertia CRUD i home dla zalogowanego
 
 #### Automated
 
-- [ ] 2.1 Auth `GET /` Inertia props z conversations
-- [ ] 2.2 Guest `GET /` bez wycieku danych konta
-- [ ] 2.3 Auth CRUD create/rename/delete conversation
-- [ ] 2.4 Ownership 403 dla cudzej rozmowy
-- [ ] 2.5 Guest POST CRUD → unauthenticated (brak insertu)
-- [ ] 2.6 Pint dirty Fazy 2
+- [x] 2.1 Auth `GET /` Inertia props z conversations
+- [x] 2.2 Guest `GET /` bez wycieku danych konta
+- [x] 2.3 Auth CRUD create/rename/delete conversation
+- [x] 2.4 Ownership 403 dla cudzej rozmowy
+- [x] 2.5 Guest POST CRUD → unauthenticated (brak insertu)
+- [x] 2.6 Pint dirty Fazy 2
 
 #### Manual
 
