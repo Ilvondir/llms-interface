@@ -9,6 +9,7 @@ import { useChatModels } from '@/composables/useChatModels';
 import { useChatStream } from '@/composables/useChatStream';
 import { useGuestChatStore } from '@/composables/useGuestChatStore';
 import { splitThinkTaggedContent } from '@/utils/assistantOutput';
+import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
 
 const toast = useToast();
@@ -121,10 +122,23 @@ const sendMessage = async (content) => {
     });
 
     const outboundMessages = historyForModel();
+    const requestModel = model.value.trim();
+    const requestPayload = buildUpstreamRequest({
+        model: requestModel,
+        systemPrompt: systemPrompt.value,
+        messages: outboundMessages,
+        temperature: Number(temperature.value),
+        topP: Number(topP.value),
+        maxTokens: maxTokens.value,
+    });
+    const sentAt = Date.now();
 
     const assistant = store.appendMessage({
         role: 'assistant',
         content: '',
+        model: requestModel,
+        sentAt,
+        requestPayload,
     });
 
     const enrichStats = (stats) => {
@@ -153,7 +167,7 @@ const sendMessage = async (content) => {
     try {
         await streamChat({
             apiBaseUrl: apiBaseUrl.value.trim(),
-            model: model.value.trim(),
+            model: requestModel,
             systemPrompt: systemPrompt.value,
             messages: outboundMessages,
             temperature: Number(temperature.value),
@@ -174,6 +188,7 @@ const sendMessage = async (content) => {
                     content: finalContent,
                     reasoning: reasoning || null,
                     stats: enrichStats(stats),
+                    receivedAt: Date.now(),
                     error: null,
                 });
             },
@@ -183,6 +198,7 @@ const sendMessage = async (content) => {
                     content: partialContent,
                     reasoning: reasoning || null,
                     stats: enrichStats(null),
+                    receivedAt: Date.now(),
                     error: message,
                 });
                 toast.error(message);

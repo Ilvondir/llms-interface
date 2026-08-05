@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue';
+import MarkdownContent from '@/Components/Chat/MarkdownContent.vue';
 
 const props = defineProps({
     reasoning: {
@@ -55,10 +56,15 @@ const onToggle = (event) => {
                 Thinking
             </span>
         </summary>
-        <pre
+        <div
             v-if="hasReasoning"
-            class="border-t border-gray-200/80 dark:border-gray-700/80 px-3 py-2.5 text-xs leading-relaxed text-gray-600 dark:text-gray-400 whitespace-pre-wrap font-sans"
-        >{{ reasoning }}</pre>
+            class="border-t border-gray-200/80 dark:border-gray-700/80 px-3 py-2.5"
+        >
+            <MarkdownContent
+                :content="reasoning"
+                compact
+            />
+        </div>
         <p
             v-else-if="thinking"
             class="border-t border-gray-200/80 dark:border-gray-700/80 px-3 py-2.5 text-xs text-gray-500 dark:text-gray-500"

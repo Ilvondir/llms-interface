@@ -1,4 +1,6 @@
 <script setup>
+import AssistantMessageMenu from '@/Components/Chat/AssistantMessageMenu.vue';
+import MarkdownContent from '@/Components/Chat/MarkdownContent.vue';
 import ReasoningBlock from '@/Components/Chat/ReasoningBlock.vue';
 import ResponseStats from '@/Components/Chat/ResponseStats.vue';
 
@@ -32,16 +34,34 @@ defineProps({
                     ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 ml-8'
                     : 'bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 mr-8'"
             >
-                <div class="text-xs font-semibold uppercase tracking-wide opacity-70 mb-1">
-                    {{ message.role }}
+                <div class="mb-1 flex items-start justify-between gap-2">
+                    <div class="min-w-0">
+                        <div class="text-xs font-semibold uppercase tracking-wide opacity-70">
+                            {{ message.role }}
+                        </div>
+                        <div
+                            v-if="message.role === 'assistant' && message.model"
+                            class="mt-0.5 mb-3 text-[11px] leading-tight text-gray-500 dark:text-gray-400 font-normal normal-case tracking-normal"
+                        >
+                            {{ message.model }}
+                        </div>
+                    </div>
+                    <AssistantMessageMenu
+                        v-if="message.role === 'assistant'"
+                        :message="message"
+                    />
                 </div>
                 <ReasoningBlock
                     v-if="message.role === 'assistant'"
                     :reasoning="message.reasoning"
                     :thinking="thinkingMessageId === message.id"
                 />
+                <MarkdownContent
+                    v-if="message.role === 'assistant' && message.content"
+                    :content="message.content"
+                />
                 <div
-                    v-if="message.content"
+                    v-else-if="message.content"
                     class="text-sm whitespace-pre-wrap"
                 >
                     {{ message.content }}

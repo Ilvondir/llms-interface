@@ -270,7 +270,17 @@ export function useGuestChatStore() {
         persist();
     };
 
-    const appendMessage = ({ role, content, reasoning = null, stats = null, error = null }) => {
+    const appendMessage = ({
+        role,
+        content,
+        reasoning = null,
+        stats = null,
+        error = null,
+        model = null,
+        sentAt = null,
+        receivedAt = null,
+        requestPayload = null,
+    }) => {
         const conversation = ensureActiveConversation();
         const message = {
             id: crypto.randomUUID(),
@@ -289,6 +299,22 @@ export function useGuestChatStore() {
 
         if (error != null) {
             message.error = error;
+        }
+
+        if (model != null && String(model).trim() !== '') {
+            message.model = String(model).trim();
+        }
+
+        if (sentAt != null) {
+            message.sentAt = sentAt;
+        }
+
+        if (receivedAt != null) {
+            message.receivedAt = receivedAt;
+        }
+
+        if (requestPayload != null) {
+            message.requestPayload = requestPayload;
         }
 
         conversation.messages.push(message);
