@@ -1,7 +1,7 @@
 ---
 change_id: vision-image-input
 title: Vision image input
-status: implementing
+status: impl_reviewed
 created: 2026-08-05
 updated: 2026-08-05
 archived_at: null
@@ -19,3 +19,5 @@ Implementation notes:
 - Phase 1–3 delivered multimodal stream contract, account persistence, and auth-only attach UI.
 - `structuredClone` on Vue proxies broke assistant persist — fixed via JSON round-trip sanitize.
 - Phase 4 maps vision-ish upstream failures to a friendly toast; user image turn is kept.
+- EXTRA: MessageThread scrolls to end on conversation open (user request).
+- Shipped: `1515110` / `0d4750b` on master.
