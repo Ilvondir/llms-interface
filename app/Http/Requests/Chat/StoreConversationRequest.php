@@ -17,6 +17,14 @@ class StoreConversationRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'title' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'system_prompt' => ['sometimes', 'nullable', 'string', 'max:100000'],
+            'model' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'params' => ['sometimes', 'array'],
+            'params.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
+            'params.max_tokens' => ['nullable', 'integer', 'min:1'],
+            'params.top_p' => ['nullable', 'numeric', 'min:0', 'max:1'],
+        ];
     }
 }

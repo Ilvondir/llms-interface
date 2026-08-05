@@ -3,6 +3,8 @@ import { computed, reactive, readonly } from 'vue';
 export const GUEST_CHAT_STORAGE_KEY = 'llms.guest.v1';
 export const GUEST_CHAT_TTL_MS = 86_400_000;
 export const GUEST_CHAT_VERSION = 2;
+/** In-memory only — never written to the conversations list until the first message. */
+export const GUEST_DRAFT_ID = '__draft__';
 
 const defaultParams = () => ({
     temperature: 0.7,
@@ -84,20 +86,26 @@ const writeStorage = (state) => {
     }
 
     const conversations = purgeExpired(state.conversations);
+    const onDraft = state.activeConversationId === GUEST_DRAFT_ID;
 
     const payload = {
         version: GUEST_CHAT_VERSION,
         settings: state.settings,
         conversations,
-        activeConversationId: conversations.some((conversation) => conversation.id === state.activeConversationId)
-            ? state.activeConversationId
-            : (conversations[0]?.id ?? null),
+        activeConversationId: onDraft
+            ? null
+            : (conversations.some((conversation) => conversation.id === state.activeConversationId)
+                ? state.activeConversationId
+                : (conversations[0]?.id ?? null)),
     };
 
     window.localStorage.setItem(GUEST_CHAT_STORAGE_KEY, JSON.stringify(payload));
 
     state.conversations = conversations;
-    state.activeConversationId = payload.activeConversationId;
+
+    if (! onDraft) {
+        state.activeConversationId = payload.activeConversationId;
+    }
 };
 
 export const toModelMessages = (conversation) => {
@@ -124,11 +132,11 @@ export const toModelMessages = (conversation) => {
     return messages;
 };
 
-const createConversationRecord = () => {
+const createConversationRecord = ({ draft = false } = {}) => {
     const timestamp = now();
 
     return {
-        id: crypto.randomUUID(),
+        id: draft ? GUEST_DRAFT_ID : crypto.randomUUID(),
         title: 'New chat',
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -146,7 +154,11 @@ export function useGuestChatStore() {
         return store;
     }
 
-    const state = reactive(readStorage());
+    const loaded = readStorage();
+    const state = reactive({
+        ...loaded,
+        draft: null,
+    });
 
     writeStorage(state);
 
@@ -154,19 +166,15 @@ export function useGuestChatStore() {
         writeStorage(state);
     };
 
-    const activeConversation = computed(() => (
-        state.conversations.find((conversation) => conversation.id === state.activeConversationId) ?? null
-    ));
-
-    const messages = computed(() => activeConversation.value?.messages ?? []);
-
-    const ensureActiveConversation = () => {
-        if (activeConversation.value) {
-            return activeConversation.value;
+    const activeConversation = computed(() => {
+        if (state.activeConversationId === GUEST_DRAFT_ID) {
+            return state.draft;
         }
 
-        return createConversation();
-    };
+        return state.conversations.find((conversation) => conversation.id === state.activeConversationId) ?? null;
+    });
+
+    const messages = computed(() => activeConversation.value?.messages ?? []);
 
     const touch = (conversation) => {
         conversation.updatedAt = now();
@@ -176,6 +184,39 @@ export function useGuestChatStore() {
         !! conversation && (conversation.messages?.length ?? 0) === 0
     );
 
+    const beginDraft = () => {
+        state.draft = createConversationRecord({ draft: true });
+        state.draft.params = {
+            ...defaultParams(),
+            ...state.settings.defaultParams,
+        };
+        state.activeConversationId = GUEST_DRAFT_ID;
+        persist();
+
+        return state.draft;
+    };
+
+    const promoteDraft = (conversation) => {
+        if (! conversation || conversation.id !== GUEST_DRAFT_ID) {
+            return conversation;
+        }
+
+        conversation.id = crypto.randomUUID();
+        state.conversations = [conversation, ...state.conversations];
+        state.activeConversationId = conversation.id;
+        state.draft = null;
+
+        return conversation;
+    };
+
+    const ensureActiveConversation = () => {
+        if (activeConversation.value) {
+            return activeConversation.value;
+        }
+
+        return beginDraft();
+    };
+
     const createConversation = () => {
         const active = activeConversation.value;
 
@@ -184,12 +225,7 @@ export function useGuestChatStore() {
             return active;
         }
 
-        const conversation = createConversationRecord();
-        state.conversations = [conversation, ...state.conversations];
-        state.activeConversationId = conversation.id;
-        persist();
-
-        return conversation;
+        return beginDraft();
     };
 
     const selectConversation = (id) => {
@@ -197,6 +233,7 @@ export function useGuestChatStore() {
             return;
         }
 
+        state.draft = null;
         state.activeConversationId = id;
         persist();
     };
@@ -282,6 +319,11 @@ export function useGuestChatStore() {
         requestPayload = null,
     }) => {
         const conversation = ensureActiveConversation();
+
+        if (role === 'user') {
+            promoteDraft(conversation);
+        }
+
         const message = {
             id: crypto.randomUUID(),
             role,

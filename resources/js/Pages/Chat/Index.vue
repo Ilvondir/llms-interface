@@ -9,7 +9,7 @@ import ChatComposer from '@/Components/Chat/ChatComposer.vue';
 import { useAccountChatStore } from '@/composables/useAccountChatStore';
 import { useChatModels } from '@/composables/useChatModels';
 import { useChatStream } from '@/composables/useChatStream';
-import { useGuestChatStore } from '@/composables/useGuestChatStore';
+import { GUEST_DRAFT_ID, useGuestChatStore } from '@/composables/useGuestChatStore';
 import { splitThinkTaggedContent } from '@/utils/assistantOutput';
 import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
@@ -33,9 +33,9 @@ const toast = useToast();
 const page = usePage();
 const isAuthenticated = computed(() => !! page.props.auth?.user);
 
-// Only construct the store for the current auth mode so guests never hit account
-// fetch paths and authenticated sessions never read/write llms.guest.v1.
-const guestStore = isAuthenticated.value ? null : useGuestChatStore();
+// Auth sessions must not touch guest localStorage on first paint. After Inertia logout
+// this same page instance is reused — lazily create the guest store then.
+let guestStore = isAuthenticated.value ? null : useGuestChatStore();
 const accountStore = isAuthenticated.value
     ? useAccountChatStore({
         chatSettings: props.chatSettings,
@@ -44,7 +44,19 @@ const accountStore = isAuthenticated.value
     })
     : null;
 
-const store = computed(() => (isAuthenticated.value ? accountStore : guestStore));
+const resolveStore = () => {
+    if (isAuthenticated.value) {
+        return accountStore;
+    }
+
+    if (! guestStore) {
+        guestStore = useGuestChatStore();
+    }
+
+    return guestStore;
+};
+
+const store = computed(() => resolveStore());
 
 const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels();
 const { isStreaming, streamChat, cancel } = useChatStream();
@@ -93,11 +105,16 @@ const systemPrompt = computed({
 });
 
 const conversations = computed(() => store.value.state.conversations);
-const activeConversationId = computed(() => (
-    isAuthenticated.value
-        ? store.value.state.settings.activeConversationId
-        : store.value.state.activeConversationId
-));
+const activeConversationId = computed(() => {
+    if (isAuthenticated.value) {
+        return store.value.activeConversation.value?.id
+            ?? store.value.state.settings.activeConversationId;
+    }
+
+    const id = store.value.state.activeConversationId;
+
+    return id === GUEST_DRAFT_ID ? null : id;
+});
 const messages = computed(() => store.value.messages.value);
 const canCreateConversation = computed(() => (
     ! store.value.isEmptyConversation(store.value.activeConversation.value)
@@ -278,6 +295,7 @@ const sendMessage = async (content) => {
                 :conversations="conversations"
                 :active-conversation-id="activeConversationId"
                 :can-create-conversation="canCreateConversation"
+                :is-guest="! isAuthenticated"
                 @commit-api-base-url="commitApiBaseUrl"
                 @select-conversation="store.selectConversation"
                 @create-conversation="store.createConversation"

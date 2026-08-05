@@ -333,12 +333,33 @@ export function useAccountChatStore(initialProps = {}) {
         }, 400);
     };
 
-    const ensureConversationId = async () => {
+    const blankDraft = () => ({
+        id: null,
+        title: 'New chat',
+        systemPrompt: '',
+        model: '',
+        params: {
+            ...defaultParams(),
+            ...state.settings.defaultParams,
+        },
+        messages: [],
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    });
+
+    const ensureConversationId = async ({ title = null } = {}) => {
         if (state.activeConversation?.id) {
             return state.activeConversation.id;
         }
 
-        const props = await jsonRequest('POST', route('conversations.store'));
+        const draft = state.activeConversation ?? blankDraft();
+
+        const props = await jsonRequest('POST', route('conversations.store'), {
+            title: title ?? draft.title ?? 'New chat',
+            system_prompt: draft.systemPrompt ?? '',
+            model: draft.model ?? '',
+            params: draft.params ?? defaultParams(),
+        });
         applyProps(props);
 
         return state.activeConversation?.id;
@@ -351,7 +372,8 @@ export function useAccountChatStore(initialProps = {}) {
 
         await prepareNavigation();
         state.pendingAssistant = null;
-        await inertiaVisit('post', route('conversations.store'));
+        state.activeConversation = blankDraft();
+        state.settings.activeConversationId = null;
 
         return state.activeConversation;
     };
@@ -428,7 +450,8 @@ export function useAccountChatStore(initialProps = {}) {
             return state.activeConversation;
         }
 
-        await ensureConversationId();
+        state.activeConversation = blankDraft();
+        state.settings.activeConversationId = null;
 
         return state.activeConversation;
     };
@@ -441,7 +464,9 @@ export function useAccountChatStore(initialProps = {}) {
         }
 
         conversation.model = model;
-        scheduleConversationPersist();
+        if (conversation.id) {
+            scheduleConversationPersist();
+        }
     };
 
     const setTemperature = async (temperature) => {
@@ -453,7 +478,9 @@ export function useAccountChatStore(initialProps = {}) {
         }
 
         state.settings.defaultParams.temperature = value;
-        scheduleConversationPersist();
+        if (conversation?.id) {
+            scheduleConversationPersist();
+        }
         scheduleSettingsPersist();
     };
 
@@ -469,7 +496,9 @@ export function useAccountChatStore(initialProps = {}) {
         }
 
         state.settings.defaultParams.max_tokens = normalized;
-        scheduleConversationPersist();
+        if (conversation?.id) {
+            scheduleConversationPersist();
+        }
         scheduleSettingsPersist();
     };
 
@@ -482,7 +511,9 @@ export function useAccountChatStore(initialProps = {}) {
         }
 
         state.settings.defaultParams.top_p = value;
-        scheduleConversationPersist();
+        if (conversation?.id) {
+            scheduleConversationPersist();
+        }
         scheduleSettingsPersist();
     };
 
@@ -494,7 +525,9 @@ export function useAccountChatStore(initialProps = {}) {
         }
 
         conversation.systemPrompt = systemPrompt;
-        scheduleConversationPersist();
+        if (conversation.id) {
+            scheduleConversationPersist();
+        }
     };
 
     const appendMessage = async ({
@@ -557,7 +590,8 @@ export function useAccountChatStore(initialProps = {}) {
 
         await flushPendingPersists();
 
-        const conversationId = await ensureConversationId();
+        const titleFromPrompt = content.trim().slice(0, 48) || 'New chat';
+        const conversationId = await ensureConversationId({ title: titleFromPrompt });
 
         const props = await jsonRequest('POST', route('conversations.prompts.store', conversationId), {
             role: 'user',

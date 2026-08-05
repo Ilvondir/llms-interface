@@ -7,7 +7,6 @@ use App\Http\Controllers\Chat\ChatStreamController;
 use App\Http\Controllers\Chat\ConversationController;
 use App\Http\Controllers\Chat\PromptController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/', [ChatPageController::class, 'home'])->name('home');
 
@@ -24,10 +23,6 @@ Route::middleware([
     config('jetstream.auth_session'),
     'verified',
 ])->group(function () {
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
-
     Route::get('/conversations/{conversation}', [ChatPageController::class, 'show'])
         ->name('conversations.show');
 

@@ -27,7 +27,16 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $response->assertRedirect(route('home', absolute: false));
+    }
+
+    public function test_dashboard_route_is_removed(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get('/dashboard')
+            ->assertNotFound();
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

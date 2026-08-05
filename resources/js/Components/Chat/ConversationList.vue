@@ -55,7 +55,7 @@ const cancelRename = () => {
             type="button"
             class="w-full text-left rounded border border-dashed border-gray-300 dark:border-gray-600 px-2 py-1.5 text-xs text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:pointer-events-none disabled:hover:bg-transparent dark:disabled:hover:bg-transparent"
             :disabled="! canCreate"
-            :title="canCreate ? 'Start a new chat' : 'Finish or leave the empty chat first'"
+            :title="canCreate ? 'Start a new chat' : 'Already on a blank chat'"
             @click="$emit('create')"
         >
             + New chat

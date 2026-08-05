@@ -1,5 +1,6 @@
 <script setup>
 import ConversationList from '@/Components/Chat/ConversationList.vue';
+import { Link } from '@inertiajs/vue3';
 
 defineProps({
     apiBaseUrl: {
@@ -48,6 +49,10 @@ defineProps({
     canCreateConversation: {
         type: Boolean,
         default: true,
+    },
+    isGuest: {
+        type: Boolean,
+        default: false,
     },
 });
 
@@ -204,6 +209,32 @@ defineEmits([
         </div>
 
         <div class="border-t border-gray-200 dark:border-gray-800 pt-2.5">
+            <div
+                v-if="isGuest"
+                class="mb-2.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950 dark:text-amber-100/90"
+            >
+                <p>
+                    Guest chats stay in this browser only and expire after about a day.
+                    They are not synced across devices.
+                </p>
+                <p class="mt-1.5">
+                    <Link
+                        :href="route('login')"
+                        class="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-50"
+                    >
+                        Log in
+                    </Link>
+                    or
+                    <Link
+                        :href="route('register')"
+                        class="font-medium underline underline-offset-2 hover:text-amber-800 dark:hover:text-amber-50"
+                    >
+                        create an account
+                    </Link>
+                    to keep conversations on your account.
+                </p>
+            </div>
+
             <h2 class="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400 mb-1.5">
                 Chats
             </h2>

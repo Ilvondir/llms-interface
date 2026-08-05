@@ -21,11 +21,15 @@ class ConversationController extends Controller
         $user = $request->user();
         $settings = $this->presenter->settingsFor($user);
 
+        $validated = $request->validated();
+
         $conversation = $user->conversations()->create([
-            'title' => 'New chat',
-            'system_prompt' => '',
-            'model' => '',
-            'params' => $settings->default_params ?? AccountChatPresenter::defaultParams(),
+            'title' => trim((string) ($validated['title'] ?? '')) ?: 'New chat',
+            'system_prompt' => $validated['system_prompt'] ?? '',
+            'model' => $validated['model'] ?? '',
+            'params' => array_key_exists('params', $validated)
+                ? array_merge(AccountChatPresenter::defaultParams(), $validated['params'] ?? [])
+                : ($settings->default_params ?? AccountChatPresenter::defaultParams()),
         ]);
 
         $settings->forceFill(['active_conversation_id' => $conversation->id])->save();

@@ -24,14 +24,31 @@ class AccountConversationCrudTest extends TestCase
         $this->assertNotNull($conversation);
         $this->assertSame('New chat', $conversation->title);
 
-        $rename = $this->actingAs($user)->patch(route('conversations.update', $conversation), [
+        $createWithFields = $this->actingAs($user)->postJson(route('conversations.store'), [
+            'title' => 'From prompt',
+            'system_prompt' => 'Be brief.',
+            'model' => 'demo',
+            'params' => [
+                'temperature' => 0.2,
+                'max_tokens' => 128,
+                'top_p' => 0.9,
+            ],
+        ]);
+        $createWithFields->assertOk();
+        $seeded = Conversation::query()->whereBelongsTo($user)->where('title', 'From prompt')->first();
+        $this->assertNotNull($seeded);
+        $this->assertSame('Be brief.', $seeded->system_prompt);
+        $this->assertSame('demo', $seeded->model);
+        $this->assertSame(0.2, $seeded->params['temperature']);
+
+        $rename = $this->actingAs($user)->patchJson(route('conversations.update', $conversation), [
             'title' => 'Renamed',
         ]);
         $rename->assertOk();
         $this->assertSame('Renamed', $conversation->fresh()->title);
 
         $delete = $this->actingAs($user)->delete(route('conversations.destroy', $conversation));
-        $delete->assertRedirect(route('home'));
+        $delete->assertRedirect(route('conversations.show', $seeded));
         $this->assertDatabaseMissing('conversations', ['id' => $conversation->id]);
     }
 
