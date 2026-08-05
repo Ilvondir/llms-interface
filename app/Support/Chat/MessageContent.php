@@ -48,7 +48,7 @@ final class MessageContent
             if ($type === 'image_url') {
                 $url = data_get($part, 'image_url.url');
 
-                if (! is_string($url) || $url === '') {
+                if (! is_string($url) || $url === '' || ! preg_match(ChatContentLimits::IMAGE_DATA_URL_PATTERN, $url)) {
                     continue;
                 }
 
@@ -105,6 +105,31 @@ final class MessageContent
         }
 
         return true;
+    }
+
+    public static function containsImage(mixed $content): bool
+    {
+        if (! is_array($content)) {
+            return false;
+        }
+
+        foreach ($content as $part) {
+            if (! is_array($part)) {
+                continue;
+            }
+
+            if (($part['type'] ?? null) !== 'image_url') {
+                continue;
+            }
+
+            $url = data_get($part, 'image_url.url');
+
+            if (is_string($url) && $url !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function plainText(mixed $content): string

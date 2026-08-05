@@ -23,6 +23,10 @@ const props = defineProps({
 
 const threadEl = ref(null);
 const bottomEl = ref(null);
+let scrollRaf = null;
+let forceScrollToEnd = false;
+
+const IMAGE_DATA_URL_PATTERN = /^data:image\/(jpeg|png|gif|webp);base64,/i;
 
 const imageUrls = (content) => {
     if (! Array.isArray(content)) {
@@ -30,7 +34,11 @@ const imageUrls = (content) => {
     }
 
     return content
-        .filter((part) => part?.type === 'image_url' && typeof part.image_url?.url === 'string')
+        .filter((part) => (
+            part?.type === 'image_url'
+            && typeof part.image_url?.url === 'string'
+            && IMAGE_DATA_URL_PATTERN.test(part.image_url.url)
+        ))
         .map((part) => part.image_url.url);
 };
 
@@ -40,6 +48,16 @@ const textContent = (content) => {
     }
 
     return contentPlainText(content);
+};
+
+const isNearBottom = () => {
+    const el = threadEl.value;
+
+    if (! el) {
+        return true;
+    }
+
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 140;
 };
 
 const scrollToEnd = async () => {
@@ -56,18 +74,36 @@ const scrollToEnd = async () => {
     }
 };
 
+const scheduleScrollToEnd = ({ force = false } = {}) => {
+    if (! force && ! forceScrollToEnd && ! isNearBottom()) {
+        return;
+    }
+
+    if (scrollRaf != null) {
+        return;
+    }
+
+    scrollRaf = requestAnimationFrame(() => {
+        scrollRaf = null;
+        scrollToEnd();
+    });
+};
+
 const onImageLoad = () => {
-    scrollToEnd();
+    scheduleScrollToEnd({ force: forceScrollToEnd || isNearBottom() });
 };
 
 watch(
     () => props.conversationId,
     () => {
-        scrollToEnd();
-        // Images decode async and grow height — pin to end again shortly after.
-        requestAnimationFrame(() => scrollToEnd());
-        setTimeout(() => scrollToEnd(), 100);
-        setTimeout(() => scrollToEnd(), 400);
+        forceScrollToEnd = true;
+        scheduleScrollToEnd({ force: true });
+        requestAnimationFrame(() => scheduleScrollToEnd({ force: true }));
+        setTimeout(() => scheduleScrollToEnd({ force: true }), 100);
+        setTimeout(() => {
+            scheduleScrollToEnd({ force: true });
+            forceScrollToEnd = false;
+        }, 400);
     },
     { immediate: true },
 );
@@ -76,12 +112,18 @@ watch(
     () => [
         props.messages.length,
         props.messages.at(-1)?.id,
-        props.messages.at(-1)?.content,
-        props.messages.at(-1)?.reasoning,
         props.thinkingMessageId,
     ],
     () => {
-        scrollToEnd();
+        scheduleScrollToEnd();
+    },
+);
+
+// Stream token updates: throttle via rAF, only stick if user is near bottom.
+watch(
+    () => [props.messages.at(-1)?.content, props.messages.at(-1)?.reasoning],
+    () => {
+        scheduleScrollToEnd();
     },
 );
 </script>

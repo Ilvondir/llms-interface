@@ -1,38 +1,69 @@
 /**
  * Best-effort mapping of upstream / proxy stream failures to user-facing copy.
- * Keeps generic messages when the failure is unrelated to images.
+ * Only remaps when the outbound request included an image and the error looks vision-related.
  *
  * @param {string} raw
+ * @param {{ hadImage?: boolean }} [options]
  * @returns {string}
  */
-export function mapVisionStreamError(raw) {
+export function mapVisionStreamError(raw, { hadImage = false } = {}) {
     const message = typeof raw === 'string' ? raw.trim() : '';
 
     if (message === '') {
         return 'Stream failed';
     }
 
+    if (! hadImage) {
+        return message;
+    }
+
     const lower = message.toLowerCase();
 
-    const looksVisionRelated = [
+    const mentionsImage = [
         'image',
         'vision',
         'multimodal',
         'image_url',
         'unsupported media',
-        'does not support',
-        "don't support",
-        'cannot process',
-        'not support image',
-        'images are not',
-        'no vision',
     ].some((needle) => lower.includes(needle));
 
-    if (! looksVisionRelated) {
+    const mentionsCapability = [
+        'not support',
+        'does not support',
+        "doesn't support",
+        "don't support",
+        'unsupported',
+        'cannot process',
+        'can\'t process',
+        'not accept',
+        'unable to',
+    ].some((needle) => lower.includes(needle));
+
+    if (! (mentionsImage && mentionsCapability)) {
         return message;
     }
 
     return "This model doesn't accept images. Try a vision-capable model or remove the attachment.";
+}
+
+/**
+ * @param {unknown} messages
+ * @returns {boolean}
+ */
+export function messagesIncludeImage(messages) {
+    if (! Array.isArray(messages)) {
+        return false;
+    }
+
+    return messages.some((message) => {
+        const content = message?.content;
+
+        if (! Array.isArray(content)) {
+            return false;
+        }
+
+        return content.some((part) => part?.type === 'image_url' && typeof part.image_url?.url === 'string');
+    });
 }
 
 /**

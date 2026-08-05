@@ -9,6 +9,7 @@ use App\Models\Conversation;
 use App\Models\Prompt;
 use App\Support\Chat\AccountChatPresenter;
 use App\Support\Chat\MessageContent;
+use App\Support\Chat\RequestPayloadSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
 use Inertia\Inertia;
@@ -34,7 +35,7 @@ class PromptController extends Controller
             'params' => $validated['params'] ?? null,
             'sent_at' => isset($validated['sent_at']) ? Carbon::createFromTimestampMs($validated['sent_at']) : null,
             'received_at' => isset($validated['received_at']) ? Carbon::createFromTimestampMs($validated['received_at']) : null,
-            'request_payload' => $validated['request_payload'] ?? null,
+            'request_payload' => RequestPayloadSanitizer::sanitize($validated['request_payload'] ?? null),
             'position' => $position,
         ]);
 
@@ -72,7 +73,7 @@ class PromptController extends Controller
                 ? ($validated['received_at'] !== null ? Carbon::createFromTimestampMs($validated['received_at']) : null)
                 : $prompt->received_at,
             'request_payload' => array_key_exists('request_payload', $validated)
-                ? $validated['request_payload']
+                ? RequestPayloadSanitizer::sanitize($validated['request_payload'])
                 : $prompt->request_payload,
         ])->save();
 

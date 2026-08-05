@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Chat;
 
+use App\Models\User;
+use App\Support\Chat\ChatContentLimits;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
 use PHPUnit\Framework\Attributes\Test;
@@ -12,7 +14,7 @@ class ChatStreamMultimodalValidationTest extends TestCase
     private const TINY_PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
 
     #[Test]
-    public function stream_forwards_image_url_content_parts_to_upstream(): void
+    public function authenticated_user_can_stream_image_url_content_parts_to_upstream(): void
     {
         Http::preventStrayRequests();
 
@@ -29,7 +31,13 @@ class ChatStreamMultimodalValidationTest extends TestCase
             ['type' => 'image_url', 'image_url' => ['url' => self::TINY_PNG]],
         ];
 
-        $response = $this->postJson(route('chat.stream'), [
+        $user = new User([
+            'id' => 1,
+            'name' => 'Vision User',
+            'email' => 'vision@example.com',
+        ]);
+
+        $response = $this->actingAs($user)->postJson(route('chat.stream'), [
             'api_base_url' => 'http://lm.test/v1',
             'model' => 'vision-model',
             'messages' => [
@@ -65,6 +73,54 @@ class ChatStreamMultimodalValidationTest extends TestCase
 
             return true;
         });
+    }
+
+    #[Test]
+    public function guest_cannot_stream_image_url_content_parts(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+
+        $response = $this->postJson(route('chat.stream'), [
+            'api_base_url' => 'http://lm.test/v1',
+            'model' => 'vision-model',
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => [
+                        ['type' => 'image_url', 'image_url' => ['url' => self::TINY_PNG]],
+                    ],
+                ],
+            ],
+        ]);
+
+        $response->assertInvalid(['messages.0.content']);
+        Http::assertSentCount(0);
+    }
+
+    #[Test]
+    public function stream_rejects_too_many_messages(): void
+    {
+        Http::preventStrayRequests();
+        Http::fake();
+
+        $messages = [];
+
+        for ($i = 0; $i < ChatContentLimits::MAX_MESSAGES_PER_REQUEST + 1; $i++) {
+            $messages[] = [
+                'role' => 'user',
+                'content' => "msg-{$i}",
+            ];
+        }
+
+        $response = $this->postJson(route('chat.stream'), [
+            'api_base_url' => 'http://lm.test/v1',
+            'model' => 'demo-model',
+            'messages' => $messages,
+        ]);
+
+        $response->assertInvalid(['messages']);
+        Http::assertSentCount(0);
     }
 
     #[Test]
@@ -149,16 +205,20 @@ class ChatStreamMultimodalValidationTest extends TestCase
             ),
         ]);
 
-        $tinyPng = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+        $user = new User([
+            'id' => 1,
+            'name' => 'Vision User',
+            'email' => 'vision@example.com',
+        ]);
 
-        $response = $this->postJson(route('chat.stream'), [
+        $response = $this->actingAs($user)->postJson(route('chat.stream'), [
             'api_base_url' => 'http://lm.test/v1',
             'model' => 'text-only',
             'messages' => [
                 [
                     'role' => 'user',
                     'content' => [
-                        ['type' => 'image_url', 'image_url' => ['url' => $tinyPng]],
+                        ['type' => 'image_url', 'image_url' => ['url' => self::TINY_PNG]],
                     ],
                 ],
             ],

@@ -1,7 +1,7 @@
 import { ref } from 'vue';
 import { csrfToken } from '@/composables/chatApi';
 import { mergeReasoning, isReasoningPhaseActive, splitThinkTaggedContent } from '@/utils/assistantOutput';
-import { extractStreamErrorMessage, mapVisionStreamError } from '@/utils/visionStreamError';
+import { extractStreamErrorMessage, mapVisionStreamError, messagesIncludeImage } from '@/utils/visionStreamError';
 
 const readDeltaText = (delta) => {
     if (! delta || typeof delta !== 'object') {
@@ -138,6 +138,7 @@ export function useChatStream() {
         let apiReasoning = '';
         let content = '';
         let reasoning = '';
+        const hadImage = messagesIncludeImage(messages);
 
         const publish = () => publishAssistantState({
             rawContent,
@@ -194,7 +195,7 @@ export function useChatStream() {
                     // keep status fallback
                 }
 
-                throw new Error(mapVisionStreamError(message));
+                throw new Error(mapVisionStreamError(message, { hadImage }));
             }
 
             if (! response.body) {
@@ -283,7 +284,7 @@ export function useChatStream() {
                 await onFinish?.({ content, reasoning, stats: null, aborted: true });
             } else {
                 const rawMessage = error instanceof Error ? error.message : 'Stream failed';
-                const message = mapVisionStreamError(rawMessage);
+                const message = mapVisionStreamError(rawMessage, { hadImage });
                 streamError.value = message;
                 ({ content, reasoning } = publish());
                 onThinking?.(false);

@@ -4,16 +4,16 @@
 - **Plan**: context/changes/vision-image-input/plan.md
 - **Scope**: Phases 1–4 of 4
 - **Date**: 2026-08-05
-- **Verdict**: NEEDS ATTENTION
-- **Findings**: 0 critical / 5 warnings / 2 observations
+- **Verdict**: APPROVED (findings fixed post-review)
+- **Findings**: 0 critical / 5 warnings fixed / 2 observations deferred
 
 ## Verdicts
 
 | Dimension | Verdict |
 |-----------|---------|
 | Plan Adherence | PASS |
-| Scope Discipline | WARNING |
-| Safety & Quality | WARNING |
+| Scope Discipline | PASS |
+| Safety & Quality | PASS |
 | Architecture | PASS |
 | Pattern Consistency | PASS |
 | Success Criteria | WARNING |
@@ -37,7 +37,7 @@
   - Tradeoff: Guests can still burn proxy bandwidth with images.
   - Confidence: MEDIUM.
   - Blind spot: Abuse volume in production.
-- **Decision**: PENDING
+- **Decision**: FIXED — applied recommended fix in follow-up commit
 
 ### F2 — No max messages count; per-message content up to 5.5M chars
 
@@ -56,7 +56,7 @@
   - Tradeoff: Weaker app-level protection.
   - Confidence: LOW — throttle may not cover body size.
   - Blind spot: Current throttle config on `chat.stream`.
-- **Decision**: PENDING
+- **Decision**: FIXED — applied recommended fix in follow-up commit
 
 ### F3 — request_payload image sanitization is client-only
 
@@ -70,7 +70,7 @@
   - Tradeoff: Small PHP helper + tests.
   - Confidence: HIGH.
   - Blind spot: None significant.
-- **Decision**: PENDING
+- **Decision**: FIXED — applied recommended fix in follow-up commit
 
 ### F4 — Vision error mapping may rewrite unrelated failures
 
@@ -84,7 +84,7 @@
   - Tradeoff: Slightly more heuristic complexity.
   - Confidence: HIGH.
   - Blind spot: Diversity of LM Studio error strings.
-- **Decision**: PENDING
+- **Decision**: FIXED — applied recommended fix in follow-up commit
 
 ### F5 — Scroll-to-end on every token (+ unplanned open scroll)
 
@@ -103,7 +103,7 @@
   - Tradeoff: Possible scroll jank on long streams.
   - Confidence: MEDIUM.
   - Blind spot: Real device performance with images.
-- **Decision**: PENDING
+- **Decision**: FIXED — applied recommended fix in follow-up commit
 
 ### F6 — Progress still open for guest / non-vision manuals
 
@@ -113,7 +113,7 @@
 - **Location**: plan.md Progress (2.4, 3.4, 4.3, 4.5)
 - **Detail**: Focused automated suite green locally (no pdo_sqlite for RefreshDatabase Feature tests). Guest isolation / guest attach / non-vision error manuals remain unchecked.
 - **Fix**: Stamp after CI/Sail run + quick guest/non-vision smoke.
-- **Decision**: PENDING
+- **Decision**: SKIPPED — deferred (manual stamp / known MVP tradeoff)
 
 ### F7 — Huge data-URLs round-trip in Inertia history (known MVP tradeoff)
 
@@ -123,4 +123,4 @@
 - **Location**: AccountChatPresenter; prompts.content JSON parts
 - **Detail**: Plan chose base64 parts in `content` (3A/7B). Multi-image histories will bloat props and replay bodies — accepted for single-user MVP; out-of-band storage was explicitly out of scope.
 - **Fix**: Follow-up change for disk/object storage if threads grow heavy; no action for this plan.
-- **Decision**: PENDING
+- **Decision**: SKIPPED — deferred (manual stamp / known MVP tradeoff)

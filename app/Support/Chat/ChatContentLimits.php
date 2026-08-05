@@ -22,5 +22,11 @@ final class ChatContentLimits
 
     public const MAX_IMAGES_PER_MESSAGE = 1;
 
+    /** Max messages in one chat.stream request (history + new turn). */
+    public const MAX_MESSAGES_PER_REQUEST = 100;
+
+    /** Max JSON-encoded size of the messages array on chat.stream. */
+    public const MAX_STREAM_MESSAGES_BYTES = 6_000_000;
+
     public const IMAGE_DATA_URL_PATTERN = '/^data:image\/(jpeg|png|gif|webp);base64,/i';
 }

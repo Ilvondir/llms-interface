@@ -21,3 +21,4 @@ Implementation notes:
 - Phase 4 maps vision-ish upstream failures to a friendly toast; user image turn is kept.
 - EXTRA: MessageThread scrolls to end on conversation open (user request).
 - Shipped: `1515110` / `0d4750b` on master.
+- Post-review fixes: guest image stream rejected; messages max + body byte cap; server RequestPayloadSanitizer; tighter vision error map; throttled scroll.
