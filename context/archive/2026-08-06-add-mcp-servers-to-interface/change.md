@@ -1,10 +1,10 @@
 ---
 change_id: add-mcp-servers-to-interface
 title: Add MCP servers to interface
-status: implemented
+status: archived
 created: 2026-08-06
 updated: 2026-08-06
-archived_at: null
+archived_at: 2026-08-06T20:55:31Z
 ---
 
 ## Notes
