@@ -438,28 +438,28 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [x] 1.1 Migracje mcp_servers + enabled_mcp_server_ids stosują się czysto
-- [x] 1.2 Feature: settings encrypted + presenter bez raw token + pusty PATCH nie kasuje tokenu
-- [x] 1.3 Feature: conversation enabled_mcp_server_ids PATCH
-- [x] 1.4 laravel/mcp w require + autoload Client
-- [x] 1.5 Pint dirty
+- [x] 1.1 Migracje mcp_servers + enabled_mcp_server_ids stosują się czysto — 6c5a403
+- [x] 1.2 Feature: settings encrypted + presenter bez raw token + pusty PATCH nie kasuje tokenu — 6c5a403
+- [x] 1.3 Feature: conversation enabled_mcp_server_ids PATCH — 6c5a403
+- [x] 1.4 laravel/mcp w require + autoload Client — 6c5a403
+- [x] 1.5 Pint dirty — 6c5a403
 
 #### Manual
 
-- [x] 1.6 Ręcznie: zapis Exa token, reload, hasToken, re-save bez tokenu zachowuje klucz
+- [x] 1.6 Ręcznie: zapis Exa token, reload, hasToken, re-save bez tokenu zachowuje klucz — 6c5a403
 
 ### Phase 2: MCP toolkit (list / map / call)
 
 #### Automated
 
-- [ ] 2.1 Unit: mapper prefix/strip + kolizje nazw
-- [ ] 2.2 Unit/feature: gateway list/call (z fake tam gdzie możliwe)
-- [ ] 2.3 Config llms.php limity MCP
-- [ ] 2.4 Pint dirty
+- [x] 2.1 Unit: mapper prefix/strip + kolizje nazw
+- [x] 2.2 Unit/feature: gateway list/call (z fake tam gdzie możliwe)
+- [x] 2.3 Config llms.php limity MCP
+- [x] 2.4 Pint dirty
 
 #### Manual
 
-- [ ] 2.5 Opcjonalnie: ręczne tools/list na Exa z siecią
+- [x] 2.5 Opcjonalnie: ręczne tools/list na Exa z siecią
 
 ### Phase 3: Chat orchestrator (tool loop + SSE)
 
