@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\UpdateChatSettingsRequest;
 use App\Models\Conversation;
 use App\Support\Chat\AccountChatPresenter;
+use App\Support\Chat\McpServerConfig;
 use Illuminate\Http\JsonResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -32,6 +33,12 @@ class ChatSettingsController extends Controller
             'default_params' => array_key_exists('default_params', $validated)
                 ? array_merge(AccountChatPresenter::defaultParams(), $validated['default_params'] ?? [])
                 : $settings->default_params,
+            'mcp_servers' => array_key_exists('mcp_servers', $validated)
+                ? McpServerConfig::mergeForStorage(
+                    $validated['mcp_servers'] ?? [],
+                    is_array($settings->mcp_servers) ? $settings->mcp_servers : [],
+                )
+                : $settings->mcp_servers,
             'active_conversation_id' => array_key_exists('active_conversation_id', $validated)
                 ? $validated['active_conversation_id']
                 : $settings->active_conversation_id,

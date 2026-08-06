@@ -7,6 +7,7 @@ use App\Http\Requests\Chat\StoreConversationRequest;
 use App\Http\Requests\Chat\UpdateConversationRequest;
 use App\Models\Conversation;
 use App\Support\Chat\AccountChatPresenter;
+use App\Support\Chat\McpServerConfig;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -22,6 +23,8 @@ class ConversationController extends Controller
         $settings = $this->presenter->settingsFor($user);
 
         $validated = $request->validated();
+        $userSettings = $settings;
+        $knownServers = is_array($userSettings->mcp_servers) ? $userSettings->mcp_servers : [];
 
         $conversation = $user->conversations()->create([
             'title' => trim((string) ($validated['title'] ?? '')) ?: 'New chat',
@@ -30,6 +33,9 @@ class ConversationController extends Controller
             'params' => array_key_exists('params', $validated)
                 ? array_merge(AccountChatPresenter::defaultParams(), $validated['params'] ?? [])
                 : ($settings->default_params ?? AccountChatPresenter::defaultParams()),
+            'enabled_mcp_server_ids' => array_key_exists('enabled_mcp_server_ids', $validated)
+                ? McpServerConfig::filterEnabledIds($validated['enabled_mcp_server_ids'] ?? [], $knownServers)
+                : [],
         ]);
 
         $settings->forceFill(['active_conversation_id' => $conversation->id])->save();
@@ -46,6 +52,9 @@ class ConversationController extends Controller
     public function update(UpdateConversationRequest $request, Conversation $conversation): Response|JsonResponse
     {
         $validated = $request->validated();
+        $user = $request->user();
+        $settings = $this->presenter->settingsFor($user);
+        $knownServers = is_array($settings->mcp_servers) ? $settings->mcp_servers : [];
 
         $conversation->fill([
             'title' => array_key_exists('title', $validated)
@@ -56,17 +65,20 @@ class ConversationController extends Controller
             'params' => array_key_exists('params', $validated)
                 ? array_merge(AccountChatPresenter::defaultParams(), $validated['params'] ?? [])
                 : $conversation->params,
+            'enabled_mcp_server_ids' => array_key_exists('enabled_mcp_server_ids', $validated)
+                ? McpServerConfig::filterEnabledIds($validated['enabled_mcp_server_ids'] ?? [], $knownServers)
+                : $conversation->enabled_mcp_server_ids,
         ])->save();
 
         if ($request->wantsJson()) {
             return response()->json(
-                $this->presenter->fieldMutationProps($request->user(), $conversation),
+                $this->presenter->fieldMutationProps($user, $conversation),
             );
         }
 
         $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
 
-        return Inertia::render('Chat/Index', $this->presenter->props($request->user(), $conversation));
+        return Inertia::render('Chat/Index', $this->presenter->props($user, $conversation));
     }
 
     public function destroy(Conversation $conversation): RedirectResponse

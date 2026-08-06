@@ -31,6 +31,7 @@ class AccountChatPresenter
             [
                 'api_base_url' => '',
                 'default_params' => self::defaultParams(),
+                'mcp_servers' => [],
                 'active_conversation_id' => null,
             ],
         );
@@ -115,6 +116,9 @@ class AccountChatPresenter
         return [
             'apiBaseUrl' => $settings->api_base_url ?? '',
             'defaultParams' => array_merge(self::defaultParams(), $settings->default_params ?? []),
+            'mcpServers' => McpServerConfig::presentForClient(
+                is_array($settings->mcp_servers) ? $settings->mcp_servers : [],
+            ),
             'activeConversationId' => $settings->active_conversation_id,
         ];
     }
@@ -146,6 +150,10 @@ class AccountChatPresenter
             'systemPrompt' => $conversation->system_prompt ?? '',
             'model' => $conversation->model ?? '',
             'params' => array_merge(self::defaultParams(), $conversation->params ?? []),
+            'enabledMcpServerIds' => array_values(array_filter(
+                is_array($conversation->enabled_mcp_server_ids) ? $conversation->enabled_mcp_server_ids : [],
+                fn ($id) => is_string($id) && $id !== '',
+            )),
             'createdAt' => optional($conversation->created_at)->getTimestamp() * 1000,
             'updatedAt' => optional($conversation->updated_at)->getTimestamp() * 1000,
         ];

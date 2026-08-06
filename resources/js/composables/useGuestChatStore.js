@@ -2,7 +2,7 @@ import { computed, reactive, readonly } from 'vue';
 
 export const GUEST_CHAT_STORAGE_KEY = 'llms.guest.v1';
 export const GUEST_CHAT_TTL_MS = 86_400_000;
-export const GUEST_CHAT_VERSION = 2;
+export const GUEST_CHAT_VERSION = 3;
 /** In-memory only — never written to the conversations list until the first message. */
 export const GUEST_DRAFT_ID = '__draft__';
 
@@ -12,11 +12,61 @@ const defaultParams = () => ({
     top_p: 1,
 });
 
+const normalizeMcpServers = (servers) => {
+    if (! Array.isArray(servers)) {
+        return [];
+    }
+
+    const seen = new Set();
+
+    return servers
+        .filter((server) => server && typeof server.id === 'string' && server.id.trim() !== '')
+        .map((server) => {
+            const id = server.id.trim();
+
+            return {
+                id,
+                name: typeof server.name === 'string' && server.name.trim() !== ''
+                    ? server.name.trim()
+                    : id,
+                url: typeof server.url === 'string' ? server.url.trim() : '',
+            };
+        })
+        .filter((server) => {
+            if (seen.has(server.id)) {
+                return false;
+            }
+
+            seen.add(server.id);
+
+            return true;
+        });
+};
+
+const normalizeEnabledMcpServerIds = (ids) => {
+    if (! Array.isArray(ids)) {
+        return [];
+    }
+
+    const seen = new Set();
+
+    return ids.filter((id) => {
+        if (typeof id !== 'string' || id.trim() === '' || seen.has(id)) {
+            return false;
+        }
+
+        seen.add(id);
+
+        return true;
+    });
+};
+
 const emptyState = () => ({
     version: GUEST_CHAT_VERSION,
     settings: {
         apiBaseUrl: '',
         defaultParams: defaultParams(),
+        mcpServers: [],
     },
     conversations: [],
     activeConversationId: null,
@@ -55,6 +105,7 @@ const readStorage = () => {
                     ...defaultParams(),
                     ...(conversation.params ?? {}),
                 },
+                enabledMcpServerIds: normalizeEnabledMcpServerIds(conversation.enabledMcpServerIds),
             })),
         );
         let activeConversationId = parsed.activeConversationId ?? null;
@@ -71,6 +122,7 @@ const readStorage = () => {
                     ...defaultParams(),
                     ...(parsed.settings?.defaultParams ?? {}),
                 },
+                mcpServers: normalizeMcpServers(parsed.settings?.mcpServers),
             },
             conversations,
             activeConversationId,
@@ -90,8 +142,18 @@ const writeStorage = (state) => {
 
     const payload = {
         version: GUEST_CHAT_VERSION,
-        settings: state.settings,
-        conversations,
+        settings: {
+            apiBaseUrl: state.settings.apiBaseUrl ?? '',
+            defaultParams: {
+                ...defaultParams(),
+                ...(state.settings.defaultParams ?? {}),
+            },
+            mcpServers: normalizeMcpServers(state.settings.mcpServers),
+        },
+        conversations: conversations.map((conversation) => ({
+            ...conversation,
+            enabledMcpServerIds: normalizeEnabledMcpServerIds(conversation.enabledMcpServerIds),
+        })),
         activeConversationId: onDraft
             ? null
             : (conversations.some((conversation) => conversation.id === state.activeConversationId)
@@ -143,6 +205,7 @@ const createConversationRecord = ({ draft = false } = {}) => {
         systemPrompt: '',
         model: '',
         params: defaultParams(),
+        enabledMcpServerIds: [],
         messages: [],
     };
 };
@@ -307,6 +370,21 @@ export function useGuestChatStore() {
         persist();
     };
 
+    const setMcpServers = (mcpServers) => {
+        // Metadata only — never persist tokens (kept in Index.vue memory for stream requests).
+        state.settings.mcpServers = normalizeMcpServers(mcpServers);
+        persist();
+    };
+
+    const setEnabledMcpServerIds = (enabledMcpServerIds) => {
+        const conversation = ensureActiveConversation();
+        const known = new Set(state.settings.mcpServers.map((server) => server.id));
+        conversation.enabledMcpServerIds = normalizeEnabledMcpServerIds(enabledMcpServerIds)
+            .filter((id) => known.has(id));
+        touch(conversation);
+        persist();
+    };
+
     const appendMessage = ({
         role,
         content,
@@ -413,6 +491,8 @@ export function useGuestChatStore() {
         setMaxTokens,
         setTopP,
         setSystemPrompt,
+        setMcpServers,
+        setEnabledMcpServerIds,
         appendMessage,
         updateMessage,
         toModelMessages: () => toModelMessages(activeConversation.value),

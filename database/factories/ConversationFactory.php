@@ -26,6 +26,7 @@ class ConversationFactory extends Factory
                 'max_tokens' => null,
                 'top_p' => 1,
             ],
+            'enabled_mcp_server_ids' => [],
         ];
     }
 }

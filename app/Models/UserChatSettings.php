@@ -19,7 +19,15 @@ class UserChatSettings extends Model
         'user_id',
         'api_base_url',
         'default_params',
+        'mcp_servers',
         'active_conversation_id',
+    ];
+
+    /**
+     * @var list<string>
+     */
+    protected $hidden = [
+        'mcp_servers',
     ];
 
     /**
@@ -36,6 +44,7 @@ class UserChatSettings extends Model
     {
         return [
             'default_params' => 'array',
+            'mcp_servers' => 'encrypted:array',
         ];
     }
 

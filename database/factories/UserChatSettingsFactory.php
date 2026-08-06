@@ -24,6 +24,7 @@ class UserChatSettingsFactory extends Factory
                 'max_tokens' => null,
                 'top_p' => 1,
             ],
+            'mcp_servers' => [],
             'active_conversation_id' => null,
         ];
     }

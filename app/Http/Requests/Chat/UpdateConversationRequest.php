@@ -24,6 +24,8 @@ class UpdateConversationRequest extends FormRequest
             'params.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
             'params.max_tokens' => ['nullable', 'integer', 'min:1'],
             'params.top_p' => ['nullable', 'numeric', 'min:0', 'max:1'],
+            'enabled_mcp_server_ids' => ['sometimes', 'array', 'max:10'],
+            'enabled_mcp_server_ids.*' => ['string', 'max:64'],
         ];
     }
 }

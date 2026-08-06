@@ -22,6 +22,7 @@ class Conversation extends Model
         'system_prompt',
         'model',
         'params',
+        'enabled_mcp_server_ids',
     ];
 
     /**
@@ -40,6 +41,7 @@ class Conversation extends Model
     {
         return [
             'params' => 'array',
+            'enabled_mcp_server_ids' => 'array',
         ];
     }
 
