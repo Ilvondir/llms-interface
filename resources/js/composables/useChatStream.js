@@ -127,6 +127,8 @@ export function useChatStream() {
         onThinking,
         onToolStatus,
         onMcpWarning,
+        onHistoryMessage,
+        onMcpTools,
         onFinish,
         onError,
     }) => {
@@ -266,6 +268,18 @@ export function useChatStream() {
 
                     if (kind === 'mcp_warning') {
                         onMcpWarning?.(parsed);
+
+                        continue;
+                    }
+
+                    if (kind === 'history_message') {
+                        onHistoryMessage?.(parsed.message ?? null);
+
+                        continue;
+                    }
+
+                    if (kind === 'mcp_tools') {
+                        onMcpTools?.(parsed.tools ?? []);
 
                         continue;
                     }

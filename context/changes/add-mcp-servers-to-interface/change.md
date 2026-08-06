@@ -22,7 +22,7 @@ Decisions (planning):
 - 4A encrypted tokens in DB
 - 5B tool status in chat
 - 6B persist tool turns, UI summary only
-- 7A max 5 rounds
+- 7A max 50 rounds (raised from 5; env `LLMS_MCP_MAX_TOOL_ROUNDS`)
 - 8A soft fail + warning
 - 9A prefix serverId__toolName
 - 10A PHPUnit/JS, no Playwright

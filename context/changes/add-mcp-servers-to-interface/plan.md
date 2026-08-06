@@ -493,14 +493,14 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [ ] 5.1 Unit composer PHP: role tool / tool_calls; reasoning strip
-- [ ] 5.2 JS compose mirror
-- [ ] 5.3 Feature: persist prompt role=tool + reload presenter
-- [ ] 5.4 Pint dirty
+- [x] 5.1 Unit composer PHP: role tool / tool_calls; reasoning strip
+- [x] 5.2 JS compose mirror
+- [x] 5.3 Feature: persist prompt role=tool + reload presenter
+- [x] 5.4 Pint dirty
 
 #### Manual
 
-- [ ] 5.5 Reload po tool chat: skróty widoczne, bez raw JSON; kolejny prompt ma kontekst
+- [x] 5.5 Reload po tool chat: skróty widoczne, bez raw JSON; kolejny prompt ma kontekst
 
 ### Phase 6: Domknięcie testów
 

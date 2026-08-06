@@ -194,7 +194,7 @@ export const toModelMessages = (conversation) => {
     return messages;
 };
 
-const createConversationRecord = ({ draft = false } = {}) => {
+const createConversationRecord = ({ draft = false, source = null } = {}) => {
     const timestamp = now();
 
     return {
@@ -202,10 +202,13 @@ const createConversationRecord = ({ draft = false } = {}) => {
         title: 'New chat',
         createdAt: timestamp,
         updatedAt: timestamp,
-        systemPrompt: '',
-        model: '',
-        params: defaultParams(),
-        enabledMcpServerIds: [],
+        systemPrompt: source?.systemPrompt ?? '',
+        model: source?.model ?? '',
+        params: {
+            ...defaultParams(),
+            ...(source?.params ?? {}),
+        },
+        enabledMcpServerIds: normalizeEnabledMcpServerIds(source?.enabledMcpServerIds ?? []),
         messages: [],
     };
 };
@@ -247,12 +250,14 @@ export function useGuestChatStore() {
         !! conversation && (conversation.messages?.length ?? 0) === 0
     );
 
-    const beginDraft = () => {
-        state.draft = createConversationRecord({ draft: true });
-        state.draft.params = {
-            ...defaultParams(),
-            ...state.settings.defaultParams,
-        };
+    const beginDraft = (source = null) => {
+        state.draft = createConversationRecord({ draft: true, source });
+        if (! source) {
+            state.draft.params = {
+                ...defaultParams(),
+                ...state.settings.defaultParams,
+            };
+        }
         state.activeConversationId = GUEST_DRAFT_ID;
         persist();
 
@@ -288,7 +293,7 @@ export function useGuestChatStore() {
             return active;
         }
 
-        return beginDraft();
+        return beginDraft(active);
     };
 
     const selectConversation = (id) => {
@@ -372,7 +377,28 @@ export function useGuestChatStore() {
 
     const setMcpServers = (mcpServers) => {
         // Metadata only — never persist tokens (kept in Index.vue memory for stream requests).
+        const previousIds = new Set(state.settings.mcpServers.map((server) => server.id));
         state.settings.mcpServers = normalizeMcpServers(mcpServers);
+        const addedIds = state.settings.mcpServers
+            .map((server) => server.id)
+            .filter((id) => ! previousIds.has(id));
+
+        if (addedIds.length > 0) {
+            const conversation = ensureActiveConversation();
+            const known = new Set(state.settings.mcpServers.map((server) => server.id));
+            const enabled = new Set(
+                normalizeEnabledMcpServerIds(conversation.enabledMcpServerIds)
+                    .filter((id) => known.has(id)),
+            );
+
+            for (const id of addedIds) {
+                enabled.add(id);
+            }
+
+            conversation.enabledMcpServerIds = [...enabled];
+            touch(conversation);
+        }
+
         persist();
     };
 
@@ -395,6 +421,9 @@ export function useGuestChatStore() {
         sentAt = null,
         receivedAt = null,
         requestPayload = null,
+        toolCalls = null,
+        toolCallId = null,
+        mcpCalls = null,
     }) => {
         if (Array.isArray(content)) {
             throw new Error('Guest chat does not support image attachments.');
@@ -439,6 +468,18 @@ export function useGuestChatStore() {
 
         if (requestPayload != null) {
             message.requestPayload = requestPayload;
+        }
+
+        if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+            message.toolCalls = toolCalls;
+        }
+
+        if (typeof toolCallId === 'string' && toolCallId !== '') {
+            message.toolCallId = toolCallId;
+        }
+
+        if (mcpCalls != null) {
+            message.mcpCalls = mcpCalls;
         }
 
         conversation.messages.push(message);

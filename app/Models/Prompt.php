@@ -19,6 +19,8 @@ class Prompt extends Model
         'conversation_id',
         'role',
         'content',
+        'tool_calls',
+        'tool_call_id',
         'reasoning',
         'stats',
         'error',
@@ -36,6 +38,7 @@ class Prompt extends Model
     protected function casts(): array
     {
         return [
+            'tool_calls' => 'array',
             'stats' => 'array',
             'params' => 'array',
             'request_payload' => 'array',

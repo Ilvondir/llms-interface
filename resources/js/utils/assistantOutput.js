@@ -1,6 +1,9 @@
 const THINK_OPEN = '<think>';
 const THINK_CLOSE = '</think>';
 
+const THINK_OPEN_RE = /<think>/gi;
+const THINK_CLOSE_RE = /<\/think>/gi;
+
 /**
  * True while an opening <think> has no matching close yet (model still thinking).
  *
@@ -22,6 +25,25 @@ export function isThinkBlockOpen(raw) {
     const closeIdx = lower.lastIndexOf(THINK_CLOSE);
 
     return openIdx > closeIdx;
+}
+
+/**
+ * Remove think tags that leaked into answer text (e.g. close without a prior open
+ * after multi-round tool loops).
+ *
+ * @param {string} text
+ * @returns {string}
+ */
+export function stripThinkTags(text) {
+    if (typeof text !== 'string' || text === '') {
+        return '';
+    }
+
+    return text
+        .replace(THINK_OPEN_RE, '')
+        .replace(THINK_CLOSE_RE, '')
+        .replace(/^\n+/, '')
+        .replace(/\n{3,}/g, '\n\n');
 }
 
 /**
@@ -64,7 +86,7 @@ export function splitThinkTaggedContent(raw) {
     }
 
     return {
-        content: contentParts.join('').replace(/^\n+/, ''),
+        content: stripThinkTags(contentParts.join('')),
         reasoning: reasoningParts
             .map((part) => part.trim())
             .filter(Boolean)

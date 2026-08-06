@@ -110,11 +110,11 @@ const closeInfo = () => {
                     </div>
                     <div>
                         <dt class="font-medium text-gray-900 dark:text-gray-100">
-                            Upstream request JSON
+                            Request to model
                         </dt>
                         <dd class="mt-1">
                             <pre
-                                class="max-h-80 overflow-auto rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 px-3 py-2 text-[11px] leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre font-mono"
+                                class="max-h-96 overflow-auto rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-950 px-3 py-2 text-[11px] leading-relaxed text-gray-800 dark:text-gray-200 whitespace-pre font-mono"
                             >{{ requestJson }}</pre>
                         </dd>
                     </div>

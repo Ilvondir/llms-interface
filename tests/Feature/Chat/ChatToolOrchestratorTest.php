@@ -124,8 +124,13 @@ class ChatToolOrchestratorTest extends TestCase
         $body = $response->streamedContent();
 
         $this->assertStringContainsString('"event":"tool_status"', $body);
+        $this->assertStringContainsString('"event":"mcp_tools"', $body);
         $this->assertStringContainsString('"status":"calling"', $body);
+        $this->assertStringContainsString('"tool_call_id":"r1_i0"', $body);
+        $this->assertStringContainsString('"arguments":{"q":"php"}', $body);
+        $this->assertStringContainsString('"event":"history_message"', $body);
         $this->assertStringContainsString('"status":"done"', $body);
+        $this->assertStringContainsString('"result":"search results"', $body);
         $this->assertStringContainsString('Final answer', $body);
         $this->assertStringContainsString('data: [DONE]', $body);
 
@@ -139,6 +144,115 @@ class ChatToolOrchestratorTest extends TestCase
 
             return isset($data['tools']) && is_array($data['tools']) && $data['tools'] !== [];
         });
+    }
+
+    #[Test]
+    public function successive_tool_rounds_emit_distinct_thinking_frame_ids(): void
+    {
+        Http::preventStrayRequests();
+
+        $roundOne = $this->sse([
+            [
+                'choices' => [[
+                    'delta' => [
+                        'tool_calls' => [[
+                            'index' => 0,
+                            'id' => 'call_a',
+                            'type' => 'function',
+                            'function' => [
+                                'name' => 'exa__search',
+                                'arguments' => '{"q":"first"}',
+                            ],
+                        ]],
+                    ],
+                ]],
+            ],
+            [
+                'choices' => [[
+                    'delta' => [],
+                    'finish_reason' => 'tool_calls',
+                ]],
+            ],
+        ]);
+
+        $roundTwo = $this->sse([
+            [
+                'choices' => [[
+                    'delta' => [
+                        'tool_calls' => [[
+                            'index' => 0,
+                            'id' => 'call_b',
+                            'type' => 'function',
+                            'function' => [
+                                'name' => 'exa__search',
+                                'arguments' => '{"q":"second"}',
+                            ],
+                        ]],
+                    ],
+                ]],
+            ],
+            [
+                'choices' => [[
+                    'delta' => [],
+                    'finish_reason' => 'tool_calls',
+                ]],
+            ],
+        ]);
+
+        $final = $this->sse([
+            ['choices' => [['delta' => ['content' => 'Done']]]],
+            ['choices' => [['delta' => [], 'finish_reason' => 'stop']]],
+        ]);
+
+        Http::fake([
+            'http://lm.test/v1/chat/completions' => Http::sequence()
+                ->push($roundOne, 200, ['Content-Type' => 'text/event-stream'])
+                ->push($roundTwo, 200, ['Content-Type' => 'text/event-stream'])
+                ->push($final, 200, ['Content-Type' => 'text/event-stream']),
+        ]);
+
+        $gateway = $this->createMock(McpToolGateway::class);
+        $gateway->method('listTools')->willReturn([
+            'tools' => [[
+                'type' => 'function',
+                'function' => [
+                    'name' => 'exa__search',
+                    'description' => 'Search',
+                    'parameters' => ['type' => 'object', 'properties' => new \stdClass],
+                ],
+            ]],
+            'errors' => [],
+        ]);
+        $gateway->expects($this->exactly(2))
+            ->method('callTool')
+            ->willReturnOnConsecutiveCalls('result-a', 'result-b');
+        $this->app->instance(McpToolGateway::class, $gateway);
+
+        $response = $this->postJson(route('chat.stream'), [
+            'api_base_url' => 'http://lm.test/v1',
+            'model' => 'demo-model',
+            'messages' => [
+                ['role' => 'user', 'content' => 'Search twice'],
+            ],
+            'enabled_mcp_server_ids' => ['exa'],
+            'mcp_servers' => [
+                ['id' => 'exa', 'name' => 'Exa', 'url' => 'https://mcp.exa.ai/mcp'],
+            ],
+            'mcp_credentials' => [
+                ['id' => 'exa', 'token' => 'guest-token'],
+            ],
+        ]);
+
+        $response->assertOk();
+        $body = $response->streamedContent();
+
+        $this->assertStringContainsString('"tool_call_id":"r1_i0"', $body);
+        $this->assertStringContainsString('"tool_call_id":"r2_i0"', $body);
+        $this->assertStringContainsString('"arguments":{"q":"first"}', $body);
+        $this->assertStringContainsString('"arguments":{"q":"second"}', $body);
+        $this->assertStringContainsString('"result":"result-a"', $body);
+        $this->assertStringContainsString('"result":"result-b"', $body);
+        $this->assertStringContainsString('Done', $body);
     }
 
     #[Test]

@@ -26,6 +26,12 @@ final class RequestPayloadSanitizer
                 return $message;
             }
 
+            if (($message['role'] ?? null) === 'tool' && is_string($message['content'] ?? null)) {
+                $message['content'] = self::truncateToolContent($message['content']);
+
+                return $message;
+            }
+
             $content = $message['content'] ?? null;
 
             if (! is_array($content)) {
@@ -63,5 +69,16 @@ final class RequestPayloadSanitizer
         }, $payload['messages']);
 
         return $payload;
+    }
+
+    private static function truncateToolContent(string $content): string
+    {
+        $limit = max(256, (int) config('llms.mcp_tool_result_max_chars', 8000));
+
+        if (mb_strlen($content) <= $limit) {
+            return $content;
+        }
+
+        return mb_substr($content, 0, $limit).'…[truncated]';
     }
 }

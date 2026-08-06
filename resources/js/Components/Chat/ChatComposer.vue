@@ -116,9 +116,14 @@ const submit = () => {
         return;
     }
 
-    emit('send', { text, imageDataUrl: image });
-    draft.value = '';
-    imageDataUrl.value = null;
+    emit('send', {
+        text,
+        imageDataUrl: image,
+        onAccepted: () => {
+            draft.value = '';
+            imageDataUrl.value = null;
+        },
+    });
 };
 </script>
 
@@ -128,7 +133,7 @@ const submit = () => {
         @submit.prevent="submit"
         @paste="onPaste"
     >
-        <div class="mx-auto max-w-3xl flex items-end gap-2">
+        <div class="mx-auto max-w-3xl flex items-stretch gap-2">
             <div
                 class="flex min-w-0 flex-1 flex-col gap-2 rounded-2xl border bg-white dark:bg-gray-950 py-1.5 pl-3 pr-1.5 shadow-sm transition"
                 :class="isDragging
@@ -182,7 +187,7 @@ const submit = () => {
                     <textarea
                         v-model="draft"
                         rows="1"
-                        class="min-h-[2.25rem] flex-1 resize-none border-0 bg-transparent py-1.5 text-sm leading-6 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-0"
+                        class="composer-scroll min-h-[2.25rem] max-h-40 flex-1 resize-none overflow-y-auto border-0 bg-transparent py-1.5 text-sm leading-6 text-gray-900 dark:text-gray-100 placeholder:text-gray-400 focus:ring-0"
                         :placeholder="allowAttachments ? 'Message or paste an image…' : 'Message…'"
                         :disabled="disabled"
                         @keydown.enter.exact.prevent="submit"
@@ -202,7 +207,7 @@ const submit = () => {
             <button
                 v-if="streaming"
                 type="button"
-                class="shrink-0 rounded-xl border border-red-600/40 bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
+                class="inline-flex shrink-0 items-center justify-center self-stretch rounded-2xl border border-red-600/40 bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-500 focus:outline-none focus:ring-2 focus:ring-red-500/40"
                 @click="emit('stop')"
             >
                 Stop

@@ -21,6 +21,8 @@ class UpdatePromptRequest extends FormRequest
     {
         return [
             'content' => ['sometimes', 'nullable', new MessageContentRule],
+            'tool_calls' => ['sometimes', 'nullable', 'array'],
+            'tool_call_id' => ['sometimes', 'nullable', 'string', 'max:255'],
             'reasoning' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
             'stats' => ['sometimes', 'nullable', 'array'],
             'error' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_ERROR_CHARS],

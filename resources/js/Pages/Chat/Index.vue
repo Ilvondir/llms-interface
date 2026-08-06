@@ -15,7 +15,7 @@ import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { contentPlainText, isContentEmpty } from '@/utils/contentParts';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
 import { buildUserMessageContent } from '@/utils/imageAttach';
-import { formatToolStatusLine } from '@/utils/streamEvents';
+import { mcpCallFromToolStatus } from '@/utils/streamEvents';
 
 const props = defineProps({
     chatSettings: {
@@ -83,7 +83,6 @@ const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels(
 const { isStreaming, streamChat, cancel } = useChatStream();
 const streamingMessageId = ref(null);
 const thinkingMessageId = ref(null);
-const liveToolStatusLines = ref([]);
 
 const apiBaseUrl = computed({
     get: () => store.value.state.settings.apiBaseUrl,
@@ -180,8 +179,28 @@ const canCreateConversation = computed(() => (
 
 const historyForModel = () => (
     (store.value.activeConversation.value?.messages ?? [])
-        .filter((message) => message.role === 'user' || message.role === 'assistant')
+        .filter((message) => (
+            message.role === 'user'
+            || message.role === 'assistant'
+            || message.role === 'tool'
+        ))
         .map((message) => {
+            if (message.role === 'tool') {
+                return {
+                    role: 'tool',
+                    tool_call_id: message.toolCallId ?? message.tool_call_id,
+                    content: typeof message.content === 'string' ? message.content : '',
+                };
+            }
+
+            if (message.role === 'assistant' && Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
+                return {
+                    role: 'assistant',
+                    content: typeof message.content === 'string' ? message.content : '',
+                    tool_calls: message.toolCalls,
+                };
+            }
+
             let content = message.content;
 
             if (message.role === 'assistant' && typeof content === 'string') {
@@ -193,7 +212,17 @@ const historyForModel = () => (
                 content,
             };
         })
-        .filter((message) => ! isContentEmpty(message.content))
+        .filter((message) => {
+            if (message.role === 'tool') {
+                return typeof message.tool_call_id === 'string' && message.tool_call_id !== '';
+            }
+
+            if (message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
+                return true;
+            }
+
+            return ! isContentEmpty(message.content);
+        })
 );
 
 const commitApiBaseUrl = async (rawUrl, { persist = true } = {}) => {
@@ -224,6 +253,7 @@ onMounted(() => {
 const sendMessage = async (payload) => {
     const text = typeof payload === 'string' ? payload : (payload?.text ?? '');
     const imageDataUrl = typeof payload === 'string' ? null : (payload?.imageDataUrl ?? null);
+    const onAccepted = typeof payload === 'object' ? payload?.onAccepted : null;
 
     if (! isAuthenticated.value && imageDataUrl) {
         toast.info('Sign in to send images.');
@@ -252,6 +282,8 @@ const sendMessage = async (payload) => {
     if (isStreaming.value) {
         return;
     }
+
+    onAccepted?.();
 
     if (isAuthenticated.value && typeof store.value.flushPendingPersists === 'function') {
         await store.value.flushPendingPersists();
@@ -310,7 +342,75 @@ const sendMessage = async (payload) => {
 
     streamingMessageId.value = assistant.id;
     thinkingMessageId.value = null;
-    liveToolStatusLines.value = [];
+
+    let reasoningOffset = 0;
+
+    const appendThinkingText = (chunk) => {
+        if (! chunk) {
+            return;
+        }
+
+        const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
+        const trace = [...(current?.thinkingTrace ?? [])];
+        const last = trace.at(-1);
+
+        if (last?.type === 'text') {
+            trace[trace.length - 1] = { type: 'text', text: `${last.text}${chunk}` };
+        } else {
+            trace.push({ type: 'text', text: chunk });
+        }
+
+        store.value.updateMessage(assistant.id, { thinkingTrace: trace }, { persist: false });
+    };
+
+    const hasActiveCallingTools = () => {
+        const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
+
+        return (current?.thinkingTrace ?? []).some((part) => (
+            part.type === 'mcp' && part.status === 'calling'
+        ));
+    };
+
+    const appendThinkingMcp = (frame) => {
+        const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
+        const trace = [...(current?.thinkingTrace ?? [])];
+        const existingIdx = trace.findIndex((part) => part.type === 'mcp' && part.id === frame.id);
+
+        let nextFrame;
+
+        if (existingIdx >= 0) {
+            const previous = trace[existingIdx];
+            nextFrame = {
+                type: 'mcp',
+                ...previous,
+                ...frame,
+                arguments: Object.keys(frame.arguments ?? {}).length > 0
+                    ? frame.arguments
+                    : (previous.arguments ?? {}),
+                result: frame.result != null ? frame.result : (previous.result ?? null),
+            };
+            trace[existingIdx] = nextFrame;
+        } else {
+            nextFrame = { type: 'mcp', ...frame };
+            trace.push(nextFrame);
+        }
+
+        const mcpCalls = [
+            ...(current?.mcpCalls ?? []).filter((call) => call.id !== frame.id),
+            {
+                id: nextFrame.id,
+                serverId: nextFrame.serverId,
+                serverName: nextFrame.serverName,
+                tool: nextFrame.tool,
+                arguments: nextFrame.arguments ?? {},
+                result: nextFrame.result ?? null,
+                detail: nextFrame.detail ?? '',
+                status: nextFrame.status ?? 'calling',
+            },
+        ];
+
+        store.value.updateMessage(assistant.id, { thinkingTrace: trace, mcpCalls }, { persist: false });
+    };
 
     const enabledIds = [...(enabledMcpServerIds.value ?? [])];
     const streamMcp = {
@@ -354,14 +454,69 @@ const sendMessage = async (payload) => {
                 store.value.updateMessage(assistant.id, { content: full }, { persist: false });
             },
             onReasoning: (_delta, full) => {
+                const chunk = typeof full === 'string' ? full.slice(reasoningOffset) : '';
+                reasoningOffset = typeof full === 'string' ? full.length : reasoningOffset;
+                appendThinkingText(chunk);
                 store.value.updateMessage(assistant.id, { reasoning: full }, { persist: false });
             },
             onThinking: (active) => {
-                thinkingMessageId.value = active ? assistant.id : null;
+                if (active) {
+                    thinkingMessageId.value = assistant.id;
+                } else if (! hasActiveCallingTools()) {
+                    thinkingMessageId.value = null;
+                }
             },
             onToolStatus: (event) => {
-                const line = formatToolStatusLine(event);
-                liveToolStatusLines.value = [...liveToolStatusLines.value.filter((item) => item !== line), line];
+                if (! event || typeof event !== 'object') {
+                    return;
+                }
+
+                appendThinkingMcp(mcpCallFromToolStatus(event));
+
+                if (hasActiveCallingTools()) {
+                    thinkingMessageId.value = assistant.id;
+                } else if (event.status === 'done' || event.status === 'error') {
+                    // Keep panel content; stop header dots once tools finish (reasoning may restart).
+                    thinkingMessageId.value = null;
+                }
+            },
+            onMcpTools: (tools) => {
+                if (! Array.isArray(tools) || tools.length === 0) {
+                    return;
+                }
+
+                const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
+                const basePayload = current?.requestPayload ?? requestPayload;
+                store.value.updateMessage(assistant.id, {
+                    requestPayload: {
+                        ...basePayload,
+                        tools,
+                    },
+                }, { persist: false });
+            },
+            onHistoryMessage: async (message) => {
+                if (! message || typeof message !== 'object') {
+                    return;
+                }
+
+                if (message.role === 'assistant' && Array.isArray(message.tool_calls)) {
+                    await store.value.appendMessage({
+                        role: 'assistant',
+                        content: typeof message.content === 'string' ? message.content : '',
+                        toolCalls: message.tool_calls,
+                        model: requestModel,
+                    });
+
+                    return;
+                }
+
+                if (message.role === 'tool') {
+                    await store.value.appendMessage({
+                        role: 'tool',
+                        content: typeof message.content === 'string' ? message.content : '',
+                        toolCallId: message.tool_call_id,
+                    });
+                }
             },
             onMcpWarning: (event) => {
                 const message = typeof event?.message === 'string' && event.message !== ''
@@ -371,18 +526,24 @@ const sendMessage = async (payload) => {
             },
             onFinish: async ({ content: finalContent, reasoning, stats }) => {
                 thinkingMessageId.value = null;
-                liveToolStatusLines.value = [];
+                const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
                 await store.value.updateMessage(assistant.id, {
                     content: finalContent,
                     reasoning: reasoning || null,
-                    stats: enrichStats(stats),
+                    mcpCalls: current?.mcpCalls ?? [],
+                    thinkingTrace: current?.thinkingTrace ?? [],
+                    requestPayload: current?.requestPayload ?? requestPayload,
+                    stats: enrichStats({
+                        ...(stats ?? {}),
+                        ...(current?.mcpCalls?.length ? { mcpCalls: current.mcpCalls } : {}),
+                        ...(current?.thinkingTrace?.length ? { thinkingTrace: current.thinkingTrace } : {}),
+                    }),
                     receivedAt: Date.now(),
                     error: null,
                 });
             },
             onError: async ({ message, content: partialContent, reasoning }) => {
                 thinkingMessageId.value = null;
-                liveToolStatusLines.value = [];
                 await store.value.updateMessage(assistant.id, {
                     content: partialContent,
                     reasoning: reasoning || null,
@@ -396,7 +557,6 @@ const sendMessage = async (payload) => {
     } finally {
         streamingMessageId.value = null;
         thinkingMessageId.value = null;
-        liveToolStatusLines.value = [];
     }
 };
 </script>
@@ -437,7 +597,6 @@ const sendMessage = async (payload) => {
             :messages="messages"
             :thinking-message-id="thinkingMessageId"
             :conversation-id="activeConversationId"
-            :tool-status-lines="liveToolStatusLines"
         />
         <ChatComposer
             :disabled="isStreaming"

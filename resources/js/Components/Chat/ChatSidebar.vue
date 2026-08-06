@@ -1,7 +1,56 @@
 <script setup>
+import { ref, watch } from 'vue';
 import ConversationList from '@/Components/Chat/ConversationList.vue';
 import McpServersPanel from '@/Components/Chat/McpServersPanel.vue';
 import { Link } from '@inertiajs/vue3';
+
+const SIDEBAR_SECTIONS_STORAGE_KEY = 'llms.sidebar.sections.v1';
+
+const defaultSidebarSections = () => ({
+    parametersOpen: false,
+    mcpOpen: false,
+    chatsOpen: true,
+});
+
+const readSidebarSections = () => {
+    const defaults = defaultSidebarSections();
+
+    if (typeof window === 'undefined' || ! window.localStorage) {
+        return defaults;
+    }
+
+    try {
+        const raw = window.localStorage.getItem(SIDEBAR_SECTIONS_STORAGE_KEY);
+
+        if (! raw) {
+            return defaults;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        return {
+            parametersOpen: typeof parsed?.parametersOpen === 'boolean'
+                ? parsed.parametersOpen
+                : defaults.parametersOpen,
+            mcpOpen: typeof parsed?.mcpOpen === 'boolean'
+                ? parsed.mcpOpen
+                : defaults.mcpOpen,
+            chatsOpen: typeof parsed?.chatsOpen === 'boolean'
+                ? parsed.chatsOpen
+                : defaults.chatsOpen,
+        };
+    } catch {
+        return defaults;
+    }
+};
+
+const writeSidebarSections = (sections) => {
+    if (typeof window === 'undefined' || ! window.localStorage) {
+        return;
+    }
+
+    window.localStorage.setItem(SIDEBAR_SECTIONS_STORAGE_KEY, JSON.stringify(sections));
+};
 
 defineProps({
     apiBaseUrl: {
@@ -85,6 +134,22 @@ defineEmits([
     'rename-conversation',
     'delete-conversation',
 ]);
+
+const storedSections = readSidebarSections();
+const parametersOpen = ref(storedSections.parametersOpen);
+const mcpOpen = ref(storedSections.mcpOpen);
+const chatsOpen = ref(storedSections.chatsOpen);
+
+watch(
+    [parametersOpen, mcpOpen, chatsOpen],
+    ([parameters, mcp, chats]) => {
+        writeSidebarSections({
+            parametersOpen: parameters,
+            mcpOpen: mcp,
+            chatsOpen: chats,
+        });
+    },
+);
 </script>
 
 <template>
@@ -152,89 +217,149 @@ defineEmits([
             </label>
         </div>
 
-        <div class="border-t border-gray-200 dark:border-gray-800 pt-2.5 space-y-2">
-            <h2 class="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400">
+        <details
+            class="border-t border-gray-200 dark:border-gray-800 pt-2.5"
+            :open="parametersOpen"
+            @toggle="parametersOpen = $event.target.open"
+        >
+            <summary class="cursor-pointer list-none font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400 select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5">
+                <svg
+                    class="h-3 w-3 shrink-0 transition-transform"
+                    :class="parametersOpen ? 'rotate-90' : ''"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
                 Parameters
-            </h2>
+            </summary>
 
-            <div class="grid grid-cols-3 gap-1.5">
-                <label class="block space-y-0.5 min-w-0">
-                    <span class="text-gray-500 dark:text-gray-400 truncate block">Temp</span>
-                    <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="2"
-                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
-                        :value="temperature"
-                        @input="$emit('update:temperature', $event.target.value)"
-                    >
-                </label>
-                <label class="block space-y-0.5 min-w-0 col-span-1">
-                    <span class="text-gray-500 dark:text-gray-400 truncate block">Top P</span>
-                    <input
-                        type="number"
-                        step="0.05"
-                        min="0"
-                        max="1"
-                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
-                        :value="topP"
-                        @input="$emit('update:topP', $event.target.value)"
-                    >
-                </label>
-                <div class="block space-y-0.5 min-w-0">
-                    <span class="text-gray-500 dark:text-gray-400 truncate block">Max tok</span>
-                    <button
-                        v-if="maxTokens === null || maxTokens === ''"
-                        type="button"
-                        class="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-xs py-1 text-left px-2 text-gray-700 dark:text-gray-200"
-                        title="Click to set a limit"
-                        @click="$emit('update:maxTokens', 2048)"
-                    >
-                        Unlimited
-                    </button>
-                    <input
-                        v-else
-                        type="number"
-                        min="1"
-                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
-                        :value="maxTokens"
-                        @input="$emit('update:maxTokens', $event.target.value === '' ? null : $event.target.value)"
-                    >
+            <div class="mt-2 space-y-2">
+                <div class="grid grid-cols-3 gap-1.5">
+                    <label class="block space-y-0.5 min-w-0">
+                        <span class="text-gray-500 dark:text-gray-400 truncate block">Temp</span>
+                        <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="2"
+                            class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
+                            :value="temperature"
+                            @input="$emit('update:temperature', $event.target.value)"
+                        >
+                    </label>
+                    <label class="block space-y-0.5 min-w-0 col-span-1">
+                        <span class="text-gray-500 dark:text-gray-400 truncate block">Top P</span>
+                        <input
+                            type="number"
+                            step="0.05"
+                            min="0"
+                            max="1"
+                            class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
+                            :value="topP"
+                            @input="$emit('update:topP', $event.target.value)"
+                        >
+                    </label>
+                    <div class="block space-y-0.5 min-w-0">
+                        <span class="text-gray-500 dark:text-gray-400 truncate block">Max tok</span>
+                        <button
+                            v-if="maxTokens === null || maxTokens === ''"
+                            type="button"
+                            class="w-full rounded border border-gray-300 dark:border-gray-700 dark:bg-gray-950 text-xs py-1 text-left px-2 text-gray-700 dark:text-gray-200"
+                            title="Click to set a limit"
+                            @click="$emit('update:maxTokens', 2048)"
+                        >
+                            Unlimited
+                        </button>
+                        <input
+                            v-else
+                            type="number"
+                            min="1"
+                            class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1"
+                            :value="maxTokens"
+                            @input="$emit('update:maxTokens', $event.target.value === '' ? null : $event.target.value)"
+                        >
+                    </div>
                 </div>
+                <button
+                    v-if="maxTokens !== null && maxTokens !== ''"
+                    type="button"
+                    class="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline-offset-2 hover:underline"
+                    @click="$emit('update:maxTokens', null)"
+                >
+                    Use unlimited max tokens
+                </button>
+
+                <label class="block space-y-0.5">
+                    <span class="text-gray-500 dark:text-gray-400">System prompt</span>
+                    <textarea
+                        rows="2"
+                        class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5 resize-y"
+                        :value="systemPrompt"
+                        placeholder="You are a helpful assistant."
+                        @input="$emit('update:systemPrompt', $event.target.value)"
+                    />
+                </label>
             </div>
-            <button
-                v-if="maxTokens !== null && maxTokens !== ''"
-                type="button"
-                class="text-[10px] text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 underline-offset-2 hover:underline"
-                @click="$emit('update:maxTokens', null)"
-            >
-                Use unlimited max tokens
-            </button>
+        </details>
 
-            <label class="block space-y-0.5">
-                <span class="text-gray-500 dark:text-gray-400">System prompt</span>
-                <textarea
-                    rows="2"
-                    class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5 resize-y"
-                    :value="systemPrompt"
-                    placeholder="You are a helpful assistant."
-                    @input="$emit('update:systemPrompt', $event.target.value)"
+        <details
+            class="border-t border-gray-200 dark:border-gray-800 pt-2.5"
+            :open="mcpOpen"
+            @toggle="mcpOpen = $event.target.open"
+        >
+            <summary class="cursor-pointer list-none font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400 select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5">
+                <svg
+                    class="h-3 w-3 shrink-0 transition-transform"
+                    :class="mcpOpen ? 'rotate-90' : ''"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+                MCP servers
+                <span
+                    v-if="(mcpServers?.length ?? 0) > 0"
+                    class="normal-case tracking-normal font-normal text-gray-400"
+                >
+                    ({{ mcpServers.length }})
+                </span>
+            </summary>
+
+            <div class="mt-2">
+                <McpServersPanel
+                    :mcp-servers="mcpServers"
+                    :enabled-mcp-server-ids="enabledMcpServerIds"
+                    :mcp-tokens="mcpTokens"
+                    :is-guest="isGuest"
+                    embedded
+                    @update:mcp-servers="$emit('update:mcpServers', $event)"
+                    @update:enabled-mcp-server-ids="$emit('update:enabledMcpServerIds', $event)"
+                    @update:mcp-token="$emit('update:mcpToken', $event)"
                 />
-            </label>
-        </div>
+            </div>
+        </details>
 
-        <McpServersPanel
-            :mcp-servers="mcpServers"
-            :enabled-mcp-server-ids="enabledMcpServerIds"
-            :mcp-tokens="mcpTokens"
-            :is-guest="isGuest"
-            @update:mcp-servers="$emit('update:mcpServers', $event)"
-            @update:enabled-mcp-server-ids="$emit('update:enabledMcpServerIds', $event)"
-            @update:mcp-token="$emit('update:mcpToken', $event)"
-        />
+        <details
+            class="border-t border-gray-200 dark:border-gray-800 pt-2.5"
+            :open="chatsOpen"
+            @toggle="chatsOpen = $event.target.open"
+        >
+            <summary class="cursor-pointer list-none font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400 select-none [&::-webkit-details-marker]:hidden flex items-center gap-1.5 mb-1.5">
+                <svg
+                    class="h-3 w-3 shrink-0 transition-transform"
+                    :class="chatsOpen ? 'rotate-90' : ''"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    aria-hidden="true"
+                >
+                    <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                </svg>
+                Chats
+            </summary>
 
-        <div class="border-t border-gray-200 dark:border-gray-800 pt-2.5">
             <div
                 v-if="isGuest"
                 class="mb-2.5 rounded-md border border-amber-200/80 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/40 px-2.5 py-2 text-[11px] leading-snug text-amber-950 dark:text-amber-100/90"
@@ -261,9 +386,6 @@ defineEmits([
                 </p>
             </div>
 
-            <h2 class="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400 mb-1.5">
-                Chats
-            </h2>
             <ConversationList
                 :conversations="conversations"
                 :active-id="activeConversationId"
@@ -273,6 +395,6 @@ defineEmits([
                 @rename="$emit('rename-conversation', $event)"
                 @delete="$emit('delete-conversation', $event)"
             />
-        </div>
+        </details>
     </div>
 </template>

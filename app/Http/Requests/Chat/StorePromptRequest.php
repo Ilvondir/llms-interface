@@ -30,11 +30,18 @@ class StorePromptRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'role' => ['required', 'string', Rule::in(['user', 'assistant'])],
+            'role' => ['required', 'string', Rule::in(['user', 'assistant', 'tool'])],
             'content' => [
-                Rule::requiredIf(fn () => $this->input('role') !== 'assistant'),
+                Rule::requiredIf(fn () => ! in_array($this->input('role'), ['assistant', 'tool'], true)),
                 'nullable',
                 new MessageContentRule,
+            ],
+            'tool_calls' => ['sometimes', 'nullable', 'array'],
+            'tool_call_id' => [
+                Rule::requiredIf(fn () => $this->input('role') === 'tool'),
+                'nullable',
+                'string',
+                'max:255',
             ],
             'reasoning' => ['nullable', 'string', 'max:'.self::MAX_TEXT_CHARS],
             'stats' => ['nullable', 'array'],

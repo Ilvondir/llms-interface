@@ -71,6 +71,28 @@ describe('composeModelMessages', () => {
             },
         ]);
     });
+
+    it('passes assistant tool_calls and tool result messages through', () => {
+        const messages = composeModelMessages(null, [
+            { role: 'user', content: 'Hi' },
+            {
+                role: 'assistant',
+                content: '',
+                toolCalls: [{
+                    id: 'call_1',
+                    type: 'function',
+                    function: { name: 'exa__search', arguments: '{}' },
+                }],
+            },
+            { role: 'tool', toolCallId: 'call_1', content: 'result' },
+        ]);
+
+        assert.equal(messages.length, 3);
+        assert.equal(messages[1].role, 'assistant');
+        assert.ok(Array.isArray(messages[1].tool_calls));
+        assert.equal(messages[2].role, 'tool');
+        assert.equal(messages[2].tool_call_id, 'call_1');
+    });
 });
 
 describe('contentParts helpers', () => {

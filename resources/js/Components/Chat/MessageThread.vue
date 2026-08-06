@@ -1,10 +1,11 @@
 <script setup>
-import { nextTick, ref, watch } from 'vue';
+import { computed, nextTick, ref, watch } from 'vue';
 import AssistantMessageMenu from '@/Components/Chat/AssistantMessageMenu.vue';
 import MarkdownContent from '@/Components/Chat/MarkdownContent.vue';
 import ReasoningBlock from '@/Components/Chat/ReasoningBlock.vue';
 import ResponseStats from '@/Components/Chat/ResponseStats.vue';
 import { contentPlainText } from '@/utils/contentParts';
+import { isToolChainMessage } from '@/utils/streamEvents';
 
 const props = defineProps({
     messages: {
@@ -19,11 +20,11 @@ const props = defineProps({
         type: [Number, String],
         default: null,
     },
-    toolStatusLines: {
-        type: Array,
-        default: () => [],
-    },
 });
+
+const visibleMessages = computed(() => (
+    (props.messages ?? []).filter((message) => ! isToolChainMessage(message))
+));
 
 const threadEl = ref(null);
 const bottomEl = ref(null);
@@ -115,9 +116,9 @@ watch(
 watch(
     () => [
         props.messages.length,
+        visibleMessages.value.length,
         props.messages.at(-1)?.id,
         props.thinkingMessageId,
-        props.toolStatusLines?.length,
     ],
     () => {
         scheduleScrollToEnd();
@@ -139,7 +140,7 @@ watch(
         class="chat-scroll flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6"
     >
         <div
-            v-if="messages.length === 0"
+            v-if="visibleMessages.length === 0"
             class="h-full flex items-center justify-center text-sm text-gray-500 dark:text-gray-400"
         >
             Send a message to start the conversation.
@@ -150,7 +151,7 @@ watch(
             class="mx-auto max-w-3xl space-y-4"
         >
             <div
-                v-for="message in messages"
+                v-for="message in visibleMessages"
                 :key="message.id"
                 class="rounded-lg px-4 py-3"
                 :class="message.role === 'user'
@@ -178,6 +179,8 @@ watch(
                     v-if="message.role === 'assistant'"
                     :reasoning="message.reasoning"
                     :thinking="thinkingMessageId === message.id"
+                    :thinking-trace="message.thinkingTrace ?? message.stats?.thinkingTrace ?? []"
+                    :mcp-calls="message.mcpCalls ?? message.stats?.mcpCalls ?? []"
                 />
                 <MarkdownContent
                     v-if="message.role === 'assistant' && message.content"
@@ -221,23 +224,6 @@ watch(
                     v-if="message.role === 'assistant'"
                     :stats="message.stats"
                 />
-            </div>
-            <div
-                v-if="toolStatusLines.length > 0"
-                class="mr-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 sm:mr-8"
-                aria-live="polite"
-            >
-                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
-                    Tools
-                </div>
-                <ul class="space-y-0.5">
-                    <li
-                        v-for="(line, index) in toolStatusLines"
-                        :key="`${index}-${line}`"
-                    >
-                        {{ line }}
-                    </li>
-                </ul>
             </div>
             <div
                 ref="bottomEl"

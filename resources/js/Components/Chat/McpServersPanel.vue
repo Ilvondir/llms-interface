@@ -22,6 +22,11 @@ const props = defineProps({
         type: Boolean,
         default: false,
     },
+    /** When true, omit outer section chrome (used inside a collapsible sidebar details). */
+    embedded: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const emit = defineEmits([
@@ -89,11 +94,18 @@ const onTokenInput = (id, value) => {
 </script>
 
 <template>
-    <div class="border-t border-gray-200 dark:border-gray-800 pt-2.5 space-y-2">
+    <div
+        class="space-y-2"
+        :class="embedded ? '' : 'border-t border-gray-200 dark:border-gray-800 pt-2.5'"
+    >
         <div class="flex items-center justify-between gap-2">
-            <h2 class="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400">
+            <h2
+                v-if="! embedded"
+                class="font-semibold uppercase tracking-wide text-[10px] text-gray-500 dark:text-gray-400"
+            >
                 MCP servers
             </h2>
+            <span v-else />
             <button
                 type="button"
                 class="text-[10px] text-gray-600 dark:text-gray-300 underline-offset-2 hover:underline"

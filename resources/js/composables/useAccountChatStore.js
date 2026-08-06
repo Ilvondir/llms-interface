@@ -284,9 +284,24 @@ export function useAccountChatStore(initialProps = {}) {
             }
 
             if (props.activeConversation.enabledMcpServerIds !== undefined) {
-                state.activeConversation.enabledMcpServerIds = normalizeEnabledMcpServerIds(
-                    props.activeConversation.enabledMcpServerIds,
+                const known = new Set(state.settings.mcpServers.map((server) => server.id));
+                const fromServer = normalizeEnabledMcpServerIds(props.activeConversation.enabledMcpServerIds)
+                    .filter((id) => known.has(id));
+                const local = normalizeEnabledMcpServerIds(state.activeConversation.enabledMcpServerIds)
+                    .filter((id) => known.has(id));
+                // Draft MCP rows (no valid URL yet) are not in DB — server soft-filters their
+                // ids out of enabled_mcp_server_ids. Keep local enables for those drafts.
+                const unpersistedIds = new Set(
+                    state.settings.mcpServers
+                        .filter((server) => ! mcpServersReadyToPersist([server]))
+                        .map((server) => server.id),
                 );
+                const preservedDraftEnables = local.filter((id) => unpersistedIds.has(id));
+
+                state.activeConversation.enabledMcpServerIds = [...new Set([
+                    ...fromServer,
+                    ...preservedDraftEnables,
+                ])];
             }
 
             state.settings.activeConversationId = props.activeConversation.id;
@@ -413,6 +428,10 @@ export function useAccountChatStore(initialProps = {}) {
                 expectedConversationId,
                 syncMcpServers: includeMcpServers,
             });
+
+            if (includeMcpServers && state.activeConversation?.id) {
+                scheduleConversationPersist();
+            }
         } catch (error) {
             if (expectedGeneration === mutationGeneration) {
                 notifyPersistError(error);
@@ -476,20 +495,24 @@ export function useAccountChatStore(initialProps = {}) {
         }, 400);
     };
 
-    const blankDraft = () => ({
-        id: null,
-        title: 'New chat',
-        systemPrompt: '',
-        model: '',
-        params: {
-            ...defaultParams(),
-            ...state.settings.defaultParams,
-        },
-        enabledMcpServerIds: [],
-        messages: [],
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-    });
+    const blankDraft = (source = null) => {
+        const from = source ?? state.activeConversation;
+
+        return {
+            id: null,
+            title: 'New chat',
+            systemPrompt: from?.systemPrompt ?? '',
+            model: from?.model ?? '',
+            params: {
+                ...defaultParams(),
+                ...(from?.params ?? state.settings.defaultParams),
+            },
+            enabledMcpServerIds: normalizeEnabledMcpServerIds(from?.enabledMcpServerIds ?? []),
+            messages: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        };
+    };
 
     const ensureConversationId = async ({ title = null } = {}) => {
         if (state.activeConversation?.id) {
@@ -515,9 +538,10 @@ export function useAccountChatStore(initialProps = {}) {
             return state.activeConversation;
         }
 
+        const source = state.activeConversation;
         await prepareNavigation();
         state.pendingAssistant = null;
-        state.activeConversation = blankDraft();
+        state.activeConversation = blankDraft(source);
         state.settings.activeConversationId = null;
 
         return state.activeConversation;
@@ -676,8 +700,10 @@ export function useAccountChatStore(initialProps = {}) {
     };
 
     const setMcpServers = (mcpServers) => {
+        const previousIds = new Set(state.settings.mcpServers.map((server) => server.id));
         const next = normalizeMcpServers(mcpServers);
         const known = new Set(next.map((server) => server.id));
+        const addedIds = next.map((server) => server.id).filter((id) => ! previousIds.has(id));
 
         state.settings.mcpServers = next;
 
@@ -687,20 +713,20 @@ export function useAccountChatStore(initialProps = {}) {
             }
         }
 
-        let enabledChanged = false;
-
         if (state.activeConversation) {
-            const before = normalizeEnabledMcpServerIds(state.activeConversation.enabledMcpServerIds);
-            const after = before.filter((id) => known.has(id));
-            enabledChanged = before.length !== after.length || before.some((id, index) => id !== after[index]);
-            state.activeConversation.enabledMcpServerIds = after;
+            const enabled = new Set(
+                normalizeEnabledMcpServerIds(state.activeConversation.enabledMcpServerIds)
+                    .filter((id) => known.has(id)),
+            );
+
+            for (const id of addedIds) {
+                enabled.add(id);
+            }
+
+            state.activeConversation.enabledMcpServerIds = [...enabled];
         }
 
         scheduleMcpSettingsPersist();
-
-        if (enabledChanged && state.activeConversation?.id) {
-            scheduleConversationPersist();
-        }
     };
 
     const setEnabledMcpServerIds = async (enabledMcpServerIds) => {
@@ -710,8 +736,18 @@ export function useAccountChatStore(initialProps = {}) {
         conversation.enabledMcpServerIds = normalizeEnabledMcpServerIds(enabledMcpServerIds)
             .filter((id) => known.has(id));
 
+        // Only PATCH enables that the server can accept (servers already stored with a URL).
+        // Draft enables stay local until the MCP server row is persisted.
         if (conversation.id) {
-            scheduleConversationPersist();
+            const persistable = conversation.enabledMcpServerIds.every((id) => {
+                const server = state.settings.mcpServers.find((item) => item.id === id);
+
+                return server != null && mcpServersReadyToPersist([server]);
+            });
+
+            if (persistable || conversation.enabledMcpServerIds.length === 0) {
+                scheduleConversationPersist();
+            }
         }
     };
 
@@ -742,8 +778,11 @@ export function useAccountChatStore(initialProps = {}) {
         receivedAt = null,
         requestPayload = null,
         params = null,
+        toolCalls = null,
+        toolCallId = null,
+        mcpCalls = null,
     }) => {
-        if (role === 'assistant') {
+        if (role === 'assistant' && (! Array.isArray(toolCalls) || toolCalls.length === 0)) {
             const pending = {
                 id: `pending-${crypto.randomUUID()}`,
                 role: 'assistant',
@@ -784,6 +823,10 @@ export function useAccountChatStore(initialProps = {}) {
                 pending.params = params;
             }
 
+            if (mcpCalls != null) {
+                pending.mcpCalls = mcpCalls;
+            }
+
             state.pendingAssistant = pending;
 
             return pending;
@@ -793,18 +836,53 @@ export function useAccountChatStore(initialProps = {}) {
 
         const plain = contentPlainText(content);
         const titleFromPrompt = (plain.trim().slice(0, 48) || (Array.isArray(content) ? 'Image' : 'New chat'));
-        const conversationId = await ensureConversationId({ title: titleFromPrompt });
+        const conversationId = await ensureConversationId(
+            role === 'user' ? { title: titleFromPrompt } : {},
+        );
 
-        const props = await jsonRequest('POST', route('conversations.prompts.store', conversationId), {
-            role: 'user',
-            content,
+        const body = {
+            role,
+            content: content ?? '',
             sent_at: sentAt,
             model,
             request_payload: requestPayload != null
                 ? sanitizeRequestPayloadForStorage(requestPayload)
                 : null,
-        });
-        applyProps(props);
+        };
+
+        if (role === 'assistant' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+            body.tool_calls = toolCalls;
+        }
+
+        if (role === 'tool') {
+            body.tool_call_id = toolCallId;
+        }
+
+        if (reasoning != null) {
+            body.reasoning = reasoning;
+        }
+
+        if (stats != null) {
+            body.stats = stats;
+        }
+
+        if (mcpCalls != null) {
+            body.stats = {
+                ...(body.stats ?? {}),
+                mcpCalls,
+            };
+        }
+
+        if (error != null) {
+            body.error = error;
+        }
+
+        if (params != null) {
+            body.params = params;
+        }
+
+        const props = await jsonRequest('POST', route('conversations.prompts.store', conversationId), body);
+        applyProps(props, { replaceMessages: true });
 
         const messagesList = state.activeConversation?.messages ?? [];
 
@@ -830,7 +908,11 @@ export function useAccountChatStore(initialProps = {}) {
                 role: 'assistant',
                 content: pending.content ?? '',
                 reasoning: pending.reasoning ?? null,
-                stats: pending.stats ?? null,
+                stats: {
+                    ...(pending.stats ?? {}),
+                    ...(pending.mcpCalls ? { mcpCalls: pending.mcpCalls } : {}),
+                    ...(pending.thinkingTrace ? { thinkingTrace: pending.thinkingTrace } : {}),
+                },
                 error: pending.error ?? null,
                 model: pending.model ?? null,
                 params: pending.params ?? state.activeConversation?.params ?? defaultParams(),

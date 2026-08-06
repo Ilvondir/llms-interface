@@ -4,8 +4,8 @@ import { isContentEmpty, normalizeMessageContent } from './contentParts.js';
  * Mirror of App\Services\Llm\ChatHistoryComposer for client-side request inspection.
  *
  * @param {string|null|undefined} systemPrompt
- * @param {Array<{ role: string, content: string|Array<Record<string, unknown>> }>} messages
- * @returns {Array<{ role: string, content: string|Array<Record<string, unknown>> }>}
+ * @param {Array<Record<string, unknown>>} messages
+ * @returns {Array<Record<string, unknown>>}
  */
 export function composeModelMessages(systemPrompt, messages) {
     const composed = [];
@@ -20,6 +20,35 @@ export function composeModelMessages(systemPrompt, messages) {
 
     for (const message of messages ?? []) {
         const role = message?.role;
+
+        if (role === 'tool') {
+            const toolCallId = message?.tool_call_id ?? message?.toolCallId;
+
+            if (typeof toolCallId !== 'string' || toolCallId === '') {
+                continue;
+            }
+
+            composed.push({
+                role: 'tool',
+                tool_call_id: toolCallId,
+                content: typeof message?.content === 'string' ? message.content : '',
+            });
+
+            continue;
+        }
+
+        const toolCalls = message?.tool_calls ?? message?.toolCalls;
+
+        if (role === 'assistant' && Array.isArray(toolCalls) && toolCalls.length > 0) {
+            composed.push({
+                role: 'assistant',
+                content: typeof message?.content === 'string' ? message.content : '',
+                tool_calls: toolCalls,
+            });
+
+            continue;
+        }
+
         const content = normalizeMessageContent(message?.content);
 
         if (! ['system', 'user', 'assistant'].includes(role) || content === null || isContentEmpty(content)) {

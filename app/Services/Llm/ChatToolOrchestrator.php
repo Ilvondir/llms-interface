@@ -29,6 +29,13 @@ class ChatToolOrchestrator
             $listed = $this->gateway->listTools($servers);
             $tools = $listed['tools'];
 
+            if ($tools !== []) {
+                $this->emitEvent([
+                    'event' => 'mcp_tools',
+                    'tools' => $tools,
+                ]);
+            }
+
             if ($tools === []) {
                 $detail = $listed['errors'] !== []
                     ? implode('; ', array_map(
@@ -49,7 +56,7 @@ class ChatToolOrchestrator
             }
 
             $messages = $payload['messages'];
-            $maxRounds = max(1, (int) config('llms.mcp_max_tool_rounds', 5));
+            $maxRounds = max(1, (int) config('llms.mcp_max_tool_rounds', 50));
 
             for ($round = 1; $round <= $maxRounds; $round++) {
                 $roundPayload = [
@@ -60,6 +67,7 @@ class ChatToolOrchestrator
 
                 $accumulatedToolCalls = [];
                 $finishReason = null;
+                $earlyToolNotices = [];
 
                 foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $roundPayload) as $event) {
                     $choice = $event['choices'][0] ?? null;
@@ -67,6 +75,7 @@ class ChatToolOrchestrator
 
                     if (is_array($delta)) {
                         $this->mergeToolCallDeltas($accumulatedToolCalls, $delta['tool_calls'] ?? null);
+                        $this->emitEarlyToolCallingNotices($accumulatedToolCalls, $servers, $earlyToolNotices, $round);
 
                         if ($this->deltaHasVisibleText($delta)) {
                             $this->emitEvent($event);
@@ -91,10 +100,19 @@ class ChatToolOrchestrator
                 $messages[] = [
                     'role' => 'assistant',
                     'content' => '',
-                    'tool_calls' => $toolCalls,
+                    'tool_calls' => array_values($toolCalls),
                 ];
 
-                foreach ($toolCalls as $toolCall) {
+                $this->emitEvent([
+                    'event' => 'history_message',
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => '',
+                        'tool_calls' => array_values($toolCalls),
+                    ],
+                ]);
+
+                foreach ($toolCalls as $index => $toolCall) {
                     $name = $toolCall['function']['name'] ?? '';
                     $rawArgs = $toolCall['function']['arguments'] ?? '{}';
                     $arguments = is_string($rawArgs) ? json_decode($rawArgs, true) : [];
@@ -104,13 +122,21 @@ class ChatToolOrchestrator
                     }
 
                     $parsed = is_string($name) ? $this->mapper->parse($name) : null;
-                    $serverId = $parsed['server_id'] ?? '';
+                    $serverId = is_string($parsed['server_id'] ?? null) ? $parsed['server_id'] : '';
+                    $serverName = $this->serverDisplayName($serverId, $servers);
+                    $frameId = $this->thinkingFrameId($round, $index);
+                    $apiToolCallId = is_string($toolCall['id'] ?? null) && $toolCall['id'] !== ''
+                        ? $toolCall['id']
+                        : $frameId;
 
                     $this->emitEvent([
                         'event' => 'tool_status',
+                        'tool_call_id' => $frameId,
                         'server_id' => $serverId,
+                        'server_name' => $serverName,
                         'tool' => $name,
                         'status' => 'calling',
+                        'arguments' => $arguments,
                         'detail' => '',
                     ]);
 
@@ -121,20 +147,32 @@ class ChatToolOrchestrator
                     );
 
                     $isError = str_starts_with($resultText, 'Error');
+                    $persistedResult = $this->truncateToolResult($resultText);
 
                     $this->emitEvent([
                         'event' => 'tool_status',
+                        'tool_call_id' => $frameId,
                         'server_id' => $serverId,
+                        'server_name' => $serverName,
                         'tool' => $name,
                         'status' => $isError ? 'error' : 'done',
-                        'detail' => $isError ? $resultText : '',
+                        'arguments' => $arguments,
+                        'result' => $persistedResult,
+                        'detail' => $isError ? $this->truncateToolResult($resultText, 500) : '',
                     ]);
 
-                    $messages[] = [
+                    $toolMessage = [
                         'role' => 'tool',
-                        'tool_call_id' => $toolCall['id'] ?? '',
-                        'content' => $resultText,
+                        'tool_call_id' => $apiToolCallId,
+                        'content' => $persistedResult,
                     ];
+
+                    $messages[] = $toolMessage;
+
+                    $this->emitEvent([
+                        'event' => 'history_message',
+                        'message' => $toolMessage,
+                    ]);
                 }
 
                 if ($round === $maxRounds) {
@@ -268,8 +306,62 @@ class ChatToolOrchestrator
     }
 
     /**
+     * Stable Thinking-panel id for one tool invocation (unique across tool rounds).
+     */
+    private function thinkingFrameId(int $round, int $index): string
+    {
+        return 'r'.$round.'_i'.$index;
+    }
+
+    /**
+     * Emit a Thinking-panel frame as soon as the model names a tool (before args finish / MCP runs).
+     *
      * @param  array<int, array<string, mixed>>  $accumulated
-     * @return list<array<string, mixed>>
+     * @param  list<array{id: string, name: string, url: string, token: string|null}>  $servers
+     * @param  array<int, true>  $notified
+     */
+    private function emitEarlyToolCallingNotices(array &$accumulated, array $servers, array &$notified, int $round): void
+    {
+        foreach ($accumulated as $index => $call) {
+            if (isset($notified[$index])) {
+                continue;
+            }
+
+            $name = $call['function']['name'] ?? '';
+
+            if (! is_string($name) || $name === '') {
+                continue;
+            }
+
+            $notified[$index] = true;
+
+            $rawArgs = $call['function']['arguments'] ?? '';
+            $arguments = is_string($rawArgs) ? json_decode($rawArgs, true) : [];
+
+            if (! is_array($arguments)) {
+                $arguments = [];
+            }
+
+            $parsed = $this->mapper->parse($name);
+            $serverId = is_string($parsed['server_id'] ?? null) ? $parsed['server_id'] : '';
+            $frameId = $this->thinkingFrameId($round, $index);
+
+            $this->emitEvent([
+                'event' => 'tool_status',
+                'tool_call_id' => $frameId,
+                'server_id' => $serverId,
+                'server_name' => $this->serverDisplayName($serverId, $servers),
+                'tool' => $name,
+                'status' => 'calling',
+                'arguments' => $arguments,
+                'detail' => '',
+            ]);
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $accumulated
+     * @return array<int, array<string, mixed>>
      */
     private function finalizeToolCalls(array $accumulated): array
     {
@@ -277,7 +369,7 @@ class ChatToolOrchestrator
 
         $calls = [];
 
-        foreach ($accumulated as $call) {
+        foreach ($accumulated as $index => $call) {
             $name = $call['function']['name'] ?? '';
 
             if (! is_string($name) || $name === '') {
@@ -285,12 +377,43 @@ class ChatToolOrchestrator
             }
 
             if (($call['id'] ?? '') === '') {
-                $call['id'] = 'call_'.count($calls);
+                $call['id'] = 'call_'.$index;
             }
 
-            $calls[] = $call;
+            $calls[$index] = $call;
         }
 
         return $calls;
+    }
+
+    /**
+     * @param  list<array{id: string, name: string, url: string, token: string|null}>  $servers
+     */
+    private function serverDisplayName(string $serverId, array $servers): string
+    {
+        if ($serverId === '') {
+            return 'MCP';
+        }
+
+        foreach ($servers as $server) {
+            if (($server['id'] ?? null) === $serverId) {
+                $name = $server['name'] ?? null;
+
+                return is_string($name) && $name !== '' ? $name : $serverId;
+            }
+        }
+
+        return $serverId;
+    }
+
+    private function truncateToolResult(string $text, ?int $max = null): string
+    {
+        $limit = $max ?? max(256, (int) config('llms.mcp_tool_result_max_chars', 8000));
+
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+
+        return mb_substr($text, 0, $limit)."\n…[truncated]";
     }
 }

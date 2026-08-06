@@ -28,6 +28,8 @@ class PromptController extends Controller
         $conversation->prompts()->create([
             'role' => $validated['role'],
             'content' => MessageContent::encodeForStorage($validated['content'] ?? ''),
+            'tool_calls' => $validated['tool_calls'] ?? null,
+            'tool_call_id' => $validated['tool_call_id'] ?? null,
             'reasoning' => $validated['reasoning'] ?? null,
             'stats' => $validated['stats'] ?? null,
             'error' => $validated['error'] ?? null,
@@ -61,6 +63,8 @@ class PromptController extends Controller
             'content' => array_key_exists('content', $validated)
                 ? MessageContent::encodeForStorage($validated['content'] ?? '')
                 : $prompt->content,
+            'tool_calls' => array_key_exists('tool_calls', $validated) ? $validated['tool_calls'] : $prompt->tool_calls,
+            'tool_call_id' => array_key_exists('tool_call_id', $validated) ? $validated['tool_call_id'] : $prompt->tool_call_id,
             'reasoning' => array_key_exists('reasoning', $validated) ? $validated['reasoning'] : $prompt->reasoning,
             'stats' => array_key_exists('stats', $validated) ? $validated['stats'] : $prompt->stats,
             'error' => array_key_exists('error', $validated) ? $validated['error'] : $prompt->error,

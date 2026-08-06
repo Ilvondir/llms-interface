@@ -191,12 +191,28 @@ class AccountChatPresenter
             'position' => $prompt->position,
         ];
 
+        if ($prompt->tool_calls !== null) {
+            $message['toolCalls'] = $prompt->tool_calls;
+        }
+
+        if ($prompt->tool_call_id !== null && $prompt->tool_call_id !== '') {
+            $message['toolCallId'] = $prompt->tool_call_id;
+        }
+
         if ($prompt->reasoning !== null) {
             $message['reasoning'] = $prompt->reasoning;
         }
 
         if ($prompt->stats !== null) {
             $message['stats'] = $prompt->stats;
+
+            if (isset($prompt->stats['mcpCalls']) && is_array($prompt->stats['mcpCalls'])) {
+                $message['mcpCalls'] = $prompt->stats['mcpCalls'];
+            }
+
+            if (isset($prompt->stats['thinkingTrace']) && is_array($prompt->stats['thinkingTrace'])) {
+                $message['thinkingTrace'] = $prompt->stats['thinkingTrace'];
+            }
         }
 
         if ($prompt->error !== null) {
