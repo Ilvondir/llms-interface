@@ -506,9 +506,9 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [x] 6.1 Pełny zestaw testów tej zmiany green
-- [x] 6.2 Regresja vision + account CRUD + stream proxy
-- [x] 6.3 Pint dirty
+- [x] 6.1 Pełny zestaw testów tej zmiany green — b11a777
+- [x] 6.2 Regresja vision + account CRUD + stream proxy — b11a777
+- [x] 6.3 Pint dirty — b11a777
 
 #### Manual
 
