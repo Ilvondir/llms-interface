@@ -69,6 +69,32 @@ class AccountPromptPersistenceTest extends TestCase
     }
 
     #[Test]
+    public function authenticated_user_can_store_assistant_prompt_with_empty_content_and_error(): void
+    {
+        $user = User::factory()->create();
+        $conversation = Conversation::factory()->for($user)->create();
+
+        $this->actingAs($user)->post(route('conversations.prompts.store', $conversation), [
+            'role' => 'user',
+            'content' => 'Hello',
+        ])->assertOk();
+
+        $storeFailedAssistant = $this->actingAs($user)->postJson(route('conversations.prompts.store', $conversation), [
+            'role' => 'assistant',
+            'content' => '',
+            'error' => 'Connection refused',
+            'model' => 'local-model',
+        ]);
+
+        $storeFailedAssistant->assertOk();
+
+        $assistant = Prompt::query()->where('conversation_id', $conversation->id)->where('role', 'assistant')->first();
+        $this->assertNotNull($assistant);
+        $this->assertSame('', $assistant->content);
+        $this->assertSame('Connection refused', $assistant->error);
+    }
+
+    #[Test]
     public function guest_cannot_store_prompts(): void
     {
         $owner = User::factory()->create();

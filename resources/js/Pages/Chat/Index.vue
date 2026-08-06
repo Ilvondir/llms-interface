@@ -15,6 +15,7 @@ import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { contentPlainText, isContentEmpty } from '@/utils/contentParts';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
 import { buildUserMessageContent } from '@/utils/imageAttach';
+import { formatToolStatusLine } from '@/utils/streamEvents';
 
 const props = defineProps({
     chatSettings: {
@@ -46,6 +47,9 @@ const accountStore = isAuthenticated.value
         activeConversation: props.activeConversation,
     })
     : null;
+
+/** Guest (and account overwrite drafts): tokens never written to localStorage. */
+const guestMcpTokensById = ref({});
 
 const resolveStore = () => {
     if (isAuthenticated.value) {
@@ -79,6 +83,7 @@ const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels(
 const { isStreaming, streamChat, cancel } = useChatStream();
 const streamingMessageId = ref(null);
 const thinkingMessageId = ref(null);
+const liveToolStatusLines = ref([]);
 
 const apiBaseUrl = computed({
     get: () => store.value.state.settings.apiBaseUrl,
@@ -120,6 +125,42 @@ const systemPrompt = computed({
     get: () => store.value.activeConversation.value?.systemPrompt ?? '',
     set: (value) => store.value.setSystemPrompt(value),
 });
+
+const mcpServers = computed({
+    get: () => store.value.state.settings.mcpServers ?? [],
+    set: (value) => store.value.setMcpServers(value),
+});
+
+const enabledMcpServerIds = computed({
+    get: () => store.value.activeConversation.value?.enabledMcpServerIds ?? [],
+    set: (value) => store.value.setEnabledMcpServerIds(value),
+});
+
+const mcpTokens = computed(() => {
+    if (isAuthenticated.value) {
+        return accountStore?.pendingMcpTokens ?? {};
+    }
+
+    return guestMcpTokensById.value;
+});
+
+const onMcpTokenUpdate = ({ id, token }) => {
+    if (isAuthenticated.value) {
+        accountStore?.setMcpToken(id, token);
+
+        return;
+    }
+
+    const next = { ...guestMcpTokensById.value };
+
+    if (! token) {
+        delete next[id];
+    } else {
+        next[id] = token;
+    }
+
+    guestMcpTokensById.value = next;
+};
 
 const conversations = computed(() => store.value.state.conversations);
 const activeConversationId = computed(() => {
@@ -212,6 +253,10 @@ const sendMessage = async (payload) => {
         return;
     }
 
+    if (isAuthenticated.value && typeof store.value.flushPendingPersists === 'function') {
+        await store.value.flushPendingPersists();
+    }
+
     await store.value.appendMessage({
         role: 'user',
         content,
@@ -265,6 +310,35 @@ const sendMessage = async (payload) => {
 
     streamingMessageId.value = assistant.id;
     thinkingMessageId.value = null;
+    liveToolStatusLines.value = [];
+
+    const enabledIds = [...(enabledMcpServerIds.value ?? [])];
+    const streamMcp = {
+        enabledMcpServerIds: enabledIds,
+    };
+
+    if (! isAuthenticated.value && enabledIds.length > 0) {
+        const servers = (mcpServers.value ?? [])
+            .filter((server) => enabledIds.includes(server.id) && server.url?.trim())
+            .map((server) => ({
+                id: server.id,
+                name: server.name,
+                url: server.url.trim(),
+            }));
+
+        streamMcp.mcpServers = servers;
+        streamMcp.mcpCredentials = servers
+            .map((server) => {
+                const token = guestMcpTokensById.value[server.id];
+
+                if (typeof token !== 'string' || token.trim() === '') {
+                    return null;
+                }
+
+                return { id: server.id, token: token.trim() };
+            })
+            .filter(Boolean);
+    }
 
     try {
         await streamChat({
@@ -275,6 +349,7 @@ const sendMessage = async (payload) => {
             temperature: requestParams.temperature,
             maxTokens: requestParams.max_tokens,
             topP: requestParams.top_p,
+            ...streamMcp,
             onToken: (_delta, full) => {
                 store.value.updateMessage(assistant.id, { content: full }, { persist: false });
             },
@@ -284,8 +359,19 @@ const sendMessage = async (payload) => {
             onThinking: (active) => {
                 thinkingMessageId.value = active ? assistant.id : null;
             },
+            onToolStatus: (event) => {
+                const line = formatToolStatusLine(event);
+                liveToolStatusLines.value = [...liveToolStatusLines.value.filter((item) => item !== line), line];
+            },
+            onMcpWarning: (event) => {
+                const message = typeof event?.message === 'string' && event.message !== ''
+                    ? event.message
+                    : 'MCP tools unavailable — continuing without tools.';
+                toast.warning(message);
+            },
             onFinish: async ({ content: finalContent, reasoning, stats }) => {
                 thinkingMessageId.value = null;
+                liveToolStatusLines.value = [];
                 await store.value.updateMessage(assistant.id, {
                     content: finalContent,
                     reasoning: reasoning || null,
@@ -296,6 +382,7 @@ const sendMessage = async (payload) => {
             },
             onError: async ({ message, content: partialContent, reasoning }) => {
                 thinkingMessageId.value = null;
+                liveToolStatusLines.value = [];
                 await store.value.updateMessage(assistant.id, {
                     content: partialContent,
                     reasoning: reasoning || null,
@@ -309,6 +396,7 @@ const sendMessage = async (payload) => {
     } finally {
         streamingMessageId.value = null;
         thinkingMessageId.value = null;
+        liveToolStatusLines.value = [];
     }
 };
 </script>
@@ -326,6 +414,9 @@ const sendMessage = async (payload) => {
                 v-model:max-tokens="maxTokens"
                 v-model:top-p="topP"
                 v-model:system-prompt="systemPrompt"
+                v-model:mcp-servers="mcpServers"
+                v-model:enabled-mcp-server-ids="enabledMcpServerIds"
+                :mcp-tokens="mcpTokens"
                 :model-options="modelOptions"
                 :models-loading="modelsLoading"
                 :models-error="modelsError"
@@ -334,6 +425,7 @@ const sendMessage = async (payload) => {
                 :can-create-conversation="canCreateConversation"
                 :is-guest="! isAuthenticated"
                 @commit-api-base-url="commitApiBaseUrl"
+                @update:mcp-token="onMcpTokenUpdate"
                 @select-conversation="selectConversation"
                 @create-conversation="createConversation"
                 @rename-conversation="store.renameConversation"
@@ -345,6 +437,7 @@ const sendMessage = async (payload) => {
             :messages="messages"
             :thinking-message-id="thinkingMessageId"
             :conversation-id="activeConversationId"
+            :tool-status-lines="liveToolStatusLines"
         />
         <ChatComposer
             :disabled="isStreaming"

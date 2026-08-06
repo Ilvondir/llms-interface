@@ -19,6 +19,10 @@ const props = defineProps({
         type: [Number, String],
         default: null,
     },
+    toolStatusLines: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const threadEl = ref(null);
@@ -113,6 +117,7 @@ watch(
         props.messages.length,
         props.messages.at(-1)?.id,
         props.thinkingMessageId,
+        props.toolStatusLines?.length,
     ],
     () => {
         scheduleScrollToEnd();
@@ -216,6 +221,23 @@ watch(
                     v-if="message.role === 'assistant'"
                     :stats="message.stats"
                 />
+            </div>
+            <div
+                v-if="toolStatusLines.length > 0"
+                class="mr-4 rounded-lg border border-dashed border-gray-300 bg-gray-50 px-4 py-2 text-xs text-gray-600 dark:border-gray-700 dark:bg-gray-950 dark:text-gray-300 sm:mr-8"
+                aria-live="polite"
+            >
+                <div class="mb-1 text-[10px] font-semibold uppercase tracking-wide opacity-70">
+                    Tools
+                </div>
+                <ul class="space-y-0.5">
+                    <li
+                        v-for="(line, index) in toolStatusLines"
+                        :key="`${index}-${line}`"
+                    >
+                        {{ line }}
+                    </li>
+                </ul>
             </div>
             <div
                 ref="bottomEl"

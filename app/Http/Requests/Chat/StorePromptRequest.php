@@ -31,7 +31,11 @@ class StorePromptRequest extends FormRequest
     {
         return [
             'role' => ['required', 'string', Rule::in(['user', 'assistant'])],
-            'content' => ['required', new MessageContentRule],
+            'content' => [
+                Rule::requiredIf(fn () => $this->input('role') !== 'assistant'),
+                'nullable',
+                new MessageContentRule,
+            ],
             'reasoning' => ['nullable', 'string', 'max:'.self::MAX_TEXT_CHARS],
             'stats' => ['nullable', 'array'],
             'error' => ['nullable', 'string', 'max:'.self::MAX_ERROR_CHARS],

@@ -13,8 +13,59 @@ const defaultParams = () => ({
 const emptySettings = () => ({
     apiBaseUrl: '',
     defaultParams: defaultParams(),
+    mcpServers: [],
     activeConversationId: null,
 });
+
+const normalizeMcpServers = (servers) => {
+    if (! Array.isArray(servers)) {
+        return [];
+    }
+
+    const seen = new Set();
+
+    return servers
+        .filter((server) => server && typeof server.id === 'string' && server.id.trim() !== '')
+        .map((server) => {
+            const id = server.id.trim();
+
+            return {
+                id,
+                name: typeof server.name === 'string' && server.name.trim() !== ''
+                    ? server.name.trim()
+                    : id,
+                url: typeof server.url === 'string' ? server.url.trim() : '',
+                hasToken: Boolean(server.hasToken),
+            };
+        })
+        .filter((server) => {
+            if (seen.has(server.id)) {
+                return false;
+            }
+
+            seen.add(server.id);
+
+            return true;
+        });
+};
+
+const normalizeEnabledMcpServerIds = (ids) => {
+    if (! Array.isArray(ids)) {
+        return [];
+    }
+
+    const seen = new Set();
+
+    return ids.filter((id) => {
+        if (typeof id !== 'string' || id.trim() === '' || seen.has(id)) {
+            return false;
+        }
+
+        seen.add(id);
+
+        return true;
+    });
+};
 
 const inertiaVisit = (method, url, data = {}, options = {}) => new Promise((resolve, reject) => {
     router.visit(url, {
@@ -86,6 +137,8 @@ export function useAccountChatStore(initialProps = {}) {
     let settingsPersistTimer = null;
     let mutationGeneration = 0;
     let lastPersistedApiBaseUrl = initialProps?.chatSettings?.apiBaseUrl ?? '';
+    /** In-memory token overwrites awaiting settings PATCH (never read from localStorage). */
+    const pendingMcpTokens = reactive({});
 
     const bumpMutationGeneration = () => {
         mutationGeneration += 1;
@@ -105,6 +158,7 @@ export function useAccountChatStore(initialProps = {}) {
                     ...defaultParams(),
                     ...(chatSettings.defaultParams ?? {}),
                 },
+                mcpServers: normalizeMcpServers(chatSettings.mcpServers),
                 activeConversationId: chatSettings.activeConversationId ?? null,
             };
             lastPersistedApiBaseUrl = state.settings.apiBaseUrl;
@@ -125,6 +179,7 @@ export function useAccountChatStore(initialProps = {}) {
                     ...defaultParams(),
                     ...(activeConversation.params ?? {}),
                 },
+                enabledMcpServerIds: normalizeEnabledMcpServerIds(activeConversation.enabledMcpServerIds),
                 messages: replaceMessages
                     ? nextMessages
                     : (state.activeConversation?.messages ?? nextMessages),
@@ -171,7 +226,7 @@ export function useAccountChatStore(initialProps = {}) {
         toast.error(message);
     };
 
-    const syncAfterJsonMutation = (props, { expectedConversationId = null } = {}) => {
+    const syncAfterJsonMutation = (props, { expectedConversationId = null, syncMcpServers = false } = {}) => {
         if (expectedConversationId != null && state.activeConversation?.id != expectedConversationId) {
             return;
         }
@@ -191,6 +246,11 @@ export function useAccountChatStore(initialProps = {}) {
             };
             if (props.chatSettings.apiBaseUrl !== undefined) {
                 state.settings.apiBaseUrl = props.chatSettings.apiBaseUrl ?? state.settings.apiBaseUrl;
+            }
+            // Incomplete MCP drafts live only in local state until URL is valid — do not
+            // overwrite them from unrelated PATCH acks (conversation / default_params).
+            if (syncMcpServers && props.chatSettings.mcpServers !== undefined) {
+                state.settings.mcpServers = normalizeMcpServers(props.chatSettings.mcpServers);
             }
         }
 
@@ -223,6 +283,12 @@ export function useAccountChatStore(initialProps = {}) {
                 };
             }
 
+            if (props.activeConversation.enabledMcpServerIds !== undefined) {
+                state.activeConversation.enabledMcpServerIds = normalizeEnabledMcpServerIds(
+                    props.activeConversation.enabledMcpServerIds,
+                );
+            }
+
             state.settings.activeConversationId = props.activeConversation.id;
         } else if (props?.activeConversation && ! state.activeConversation) {
             applyProps(props);
@@ -253,6 +319,7 @@ export function useAccountChatStore(initialProps = {}) {
                 system_prompt: conversation.systemPrompt ?? '',
                 model: conversation.model ?? '',
                 params: conversation.params ?? defaultParams(),
+                enabled_mcp_server_ids: normalizeEnabledMcpServerIds(conversation.enabledMcpServerIds),
             });
 
             if (expectedGeneration !== mutationGeneration || state.activeConversation?.id != expectedId) {
@@ -269,7 +336,29 @@ export function useAccountChatStore(initialProps = {}) {
         }
     };
 
-    const flushSettingsPatch = async ({ generation = null } = {}) => {
+    const mcpServersReadyToPersist = (servers) => {
+        if (! Array.isArray(servers) || servers.length === 0) {
+            return true;
+        }
+
+        return servers.every((server) => {
+            const url = typeof server.url === 'string' ? server.url.trim() : '';
+
+            if (url === '') {
+                return false;
+            }
+
+            try {
+                const parsed = new URL(url);
+
+                return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+            } catch {
+                return false;
+            }
+        });
+    };
+
+    const flushSettingsPatch = async ({ generation = null, includeMcpServers = false } = {}) => {
         if (generation != null && generation !== mutationGeneration) {
             return;
         }
@@ -278,17 +367,52 @@ export function useAccountChatStore(initialProps = {}) {
         const expectedConversationId = state.activeConversation?.id ?? null;
 
         try {
-            const props = await jsonRequest('PATCH', route('chat-settings.update'), {
+            const payload = {
                 default_params: state.settings.defaultParams,
                 api_base_url: state.settings.apiBaseUrl,
                 active_conversation_id: state.settings.activeConversationId,
-            });
+            };
+
+            const tokenIdsSent = [];
+
+            if (includeMcpServers) {
+                const servers = normalizeMcpServers(state.settings.mcpServers);
+
+                if (! mcpServersReadyToPersist(servers)) {
+                    return;
+                }
+
+                payload.mcp_servers = servers.map((server) => {
+                    const row = {
+                        id: server.id,
+                        name: server.name,
+                        url: server.url,
+                    };
+                    const pending = pendingMcpTokens[server.id];
+
+                    if (typeof pending === 'string' && pending.trim() !== '') {
+                        row.token = pending.trim();
+                        tokenIdsSent.push(server.id);
+                    }
+
+                    return row;
+                });
+            }
+
+            const props = await jsonRequest('PATCH', route('chat-settings.update'), payload);
 
             if (expectedGeneration !== mutationGeneration) {
                 return;
             }
 
-            syncAfterJsonMutation(props, { expectedConversationId });
+            for (const id of tokenIdsSent) {
+                delete pendingMcpTokens[id];
+            }
+
+            syncAfterJsonMutation(props, {
+                expectedConversationId,
+                syncMcpServers: includeMcpServers,
+            });
         } catch (error) {
             if (expectedGeneration === mutationGeneration) {
                 notifyPersistError(error);
@@ -298,15 +422,22 @@ export function useAccountChatStore(initialProps = {}) {
         }
     };
 
+    const flushMcpServersPatch = async ({ generation = null } = {}) => {
+        await flushSettingsPatch({ generation, includeMcpServers: true });
+    };
+
     const flushPendingPersists = async () => {
         clearTimeout(conversationPersistTimer);
         clearTimeout(settingsPersistTimer);
+        clearTimeout(mcpSettingsPersistTimer);
         conversationPersistTimer = null;
         settingsPersistTimer = null;
+        mcpSettingsPersistTimer = null;
 
         await Promise.allSettled([
             flushConversationPatch(),
             flushSettingsPatch(),
+            flushMcpServersPatch(),
         ]);
     };
 
@@ -334,6 +465,17 @@ export function useAccountChatStore(initialProps = {}) {
         }, 400);
     };
 
+    let mcpSettingsPersistTimer = null;
+
+    const scheduleMcpSettingsPersist = () => {
+        clearTimeout(mcpSettingsPersistTimer);
+        const generation = mutationGeneration;
+
+        mcpSettingsPersistTimer = setTimeout(() => {
+            flushMcpServersPatch({ generation }).catch(() => {});
+        }, 400);
+    };
+
     const blankDraft = () => ({
         id: null,
         title: 'New chat',
@@ -343,6 +485,7 @@ export function useAccountChatStore(initialProps = {}) {
             ...defaultParams(),
             ...state.settings.defaultParams,
         },
+        enabledMcpServerIds: [],
         messages: [],
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -360,6 +503,7 @@ export function useAccountChatStore(initialProps = {}) {
             system_prompt: draft.systemPrompt ?? '',
             model: draft.model ?? '',
             params: draft.params ?? defaultParams(),
+            enabled_mcp_server_ids: normalizeEnabledMcpServerIds(draft.enabledMcpServerIds),
         });
         applyProps(props);
 
@@ -531,6 +675,62 @@ export function useAccountChatStore(initialProps = {}) {
         }
     };
 
+    const setMcpServers = (mcpServers) => {
+        const next = normalizeMcpServers(mcpServers);
+        const known = new Set(next.map((server) => server.id));
+
+        state.settings.mcpServers = next;
+
+        for (const id of Object.keys(pendingMcpTokens)) {
+            if (! known.has(id)) {
+                delete pendingMcpTokens[id];
+            }
+        }
+
+        let enabledChanged = false;
+
+        if (state.activeConversation) {
+            const before = normalizeEnabledMcpServerIds(state.activeConversation.enabledMcpServerIds);
+            const after = before.filter((id) => known.has(id));
+            enabledChanged = before.length !== after.length || before.some((id, index) => id !== after[index]);
+            state.activeConversation.enabledMcpServerIds = after;
+        }
+
+        scheduleMcpSettingsPersist();
+
+        if (enabledChanged && state.activeConversation?.id) {
+            scheduleConversationPersist();
+        }
+    };
+
+    const setEnabledMcpServerIds = async (enabledMcpServerIds) => {
+        const conversation = await ensureLocalConversation();
+        const known = new Set(state.settings.mcpServers.map((server) => server.id));
+
+        conversation.enabledMcpServerIds = normalizeEnabledMcpServerIds(enabledMcpServerIds)
+            .filter((id) => known.has(id));
+
+        if (conversation.id) {
+            scheduleConversationPersist();
+        }
+    };
+
+    const setMcpToken = (id, token) => {
+        if (typeof id !== 'string' || id.trim() === '') {
+            return;
+        }
+
+        const trimmed = typeof token === 'string' ? token : '';
+
+        if (trimmed === '') {
+            delete pendingMcpTokens[id];
+        } else {
+            pendingMcpTokens[id] = trimmed;
+        }
+
+        scheduleMcpSettingsPersist();
+    };
+
     const appendMessage = async ({
         role,
         content,
@@ -696,6 +896,11 @@ export function useAccountChatStore(initialProps = {}) {
         setMaxTokens,
         setTopP,
         setSystemPrompt,
+        setMcpServers,
+        setEnabledMcpServerIds,
+        setMcpToken,
+        pendingMcpTokens: readonly(pendingMcpTokens),
+        flushPendingPersists,
         appendMessage,
         updateMessage,
         toModelMessages: () => {

@@ -2,6 +2,7 @@ import { ref } from 'vue';
 import { csrfToken } from '@/composables/chatApi';
 import { mergeReasoning, isReasoningPhaseActive, splitThinkTaggedContent } from '@/utils/assistantOutput';
 import { extractStreamErrorMessage, mapVisionStreamError, messagesIncludeImage } from '@/utils/visionStreamError';
+import { classifyStreamEvent } from '@/utils/streamEvents';
 
 const readDeltaText = (delta) => {
     if (! delta || typeof delta !== 'object') {
@@ -118,9 +119,14 @@ export function useChatStream() {
         temperature,
         maxTokens,
         topP,
+        enabledMcpServerIds = [],
+        mcpServers = [],
+        mcpCredentials = [],
         onToken,
         onReasoning,
         onThinking,
+        onToolStatus,
+        onMcpWarning,
         onFinish,
         onError,
     }) => {
@@ -159,6 +165,18 @@ export function useChatStream() {
 
         if (maxTokens != null) {
             payload.max_tokens = maxTokens;
+        }
+
+        if (Array.isArray(enabledMcpServerIds) && enabledMcpServerIds.length > 0) {
+            payload.enabled_mcp_server_ids = enabledMcpServerIds;
+        }
+
+        if (Array.isArray(mcpServers) && mcpServers.length > 0) {
+            payload.mcp_servers = mcpServers;
+        }
+
+        if (Array.isArray(mcpCredentials) && mcpCredentials.length > 0) {
+            payload.mcp_credentials = mcpCredentials;
         }
 
         try {
@@ -235,6 +253,20 @@ export function useChatStream() {
                     try {
                         parsed = JSON.parse(data);
                     } catch {
+                        continue;
+                    }
+
+                    const kind = classifyStreamEvent(parsed);
+
+                    if (kind === 'tool_status') {
+                        onToolStatus?.(parsed);
+
+                        continue;
+                    }
+
+                    if (kind === 'mcp_warning') {
+                        onMcpWarning?.(parsed);
+
                         continue;
                     }
 

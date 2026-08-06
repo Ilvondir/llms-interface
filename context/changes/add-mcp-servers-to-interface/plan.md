@@ -465,29 +465,29 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [x] 3.1 Feature: multi-round tool loop (Http::fake sequence) + tool_status events
-- [x] 3.2 Feature: soft-fail discovery → mcp_warning + stream bez tools
-- [x] 3.3 Feature: auth ignoruje mcp_credentials z body
-- [x] 3.4 Feature: max rounds cut-off
-- [x] 3.5 Regresja ChatStreamProxyTest bez MCP
-- [x] 3.6 Pint dirty
+- [x] 3.1 Feature: multi-round tool loop (Http::fake sequence) + tool_status events — ebef906
+- [x] 3.2 Feature: soft-fail discovery → mcp_warning + stream bez tools — ebef906
+- [x] 3.3 Feature: auth ignoruje mcp_credentials z body — ebef906
+- [x] 3.4 Feature: max rounds cut-off — ebef906
+- [x] 3.5 Regresja ChatStreamProxyTest bez MCP — ebef906
+- [x] 3.6 Pint dirty — ebef906
 
 #### Manual
 
-- [x] 3.7 Ręcznie: Exa + model z tools → status + finalna odpowiedź
+- [x] 3.7 Ręcznie: Exa + model z tools → status + finalna odpowiedź — ebef906
 
 ### Phase 4: Frontend (panel + stream status)
 
 #### Automated
 
-- [ ] 4.1 JS/parse: obsługa event tool_status / mcp_warning (helper lub test)
-- [ ] 4.2 Istniejące testy JS bez regresji
+- [x] 4.1 JS/parse: obsługa event tool_status / mcp_warning (helper lub test)
+- [x] 4.2 Istniejące testy JS bez regresji
 
 #### Manual
 
-- [ ] 4.3 Panel pod system promptem: preset Exa, custom server, enable na rozmowie
-- [ ] 4.4 Guest: token nie w localStorage po reload; account: hasToken po reload
-- [ ] 4.5 UI pokazuje status tool i warning przy złym MCP
+- [x] 4.3 Panel pod system promptem: preset Exa, custom server, enable na rozmowie
+- [x] 4.4 Guest: token nie w localStorage po reload; account: hasToken po reload
+- [x] 4.5 UI pokazuje status tool i warning przy złym MCP
 
 ### Phase 5: Historia tool turns (composer + persist)
 

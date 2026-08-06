@@ -20,7 +20,7 @@ class UpdatePromptRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'content' => ['sometimes', new MessageContentRule],
+            'content' => ['sometimes', 'nullable', new MessageContentRule],
             'reasoning' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_TEXT_CHARS],
             'stats' => ['sometimes', 'nullable', 'array'],
             'error' => ['sometimes', 'nullable', 'string', 'max:'.StorePromptRequest::MAX_ERROR_CHARS],

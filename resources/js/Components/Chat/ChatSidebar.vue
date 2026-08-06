@@ -1,5 +1,6 @@
 <script setup>
 import ConversationList from '@/Components/Chat/ConversationList.vue';
+import McpServersPanel from '@/Components/Chat/McpServersPanel.vue';
 import { Link } from '@inertiajs/vue3';
 
 defineProps({
@@ -38,6 +39,18 @@ defineProps({
         type: String,
         default: '',
     },
+    mcpServers: {
+        type: Array,
+        default: () => [],
+    },
+    enabledMcpServerIds: {
+        type: Array,
+        default: () => [],
+    },
+    mcpTokens: {
+        type: Object,
+        default: () => ({}),
+    },
     conversations: {
         type: Array,
         default: () => [],
@@ -63,6 +76,9 @@ defineEmits([
     'update:maxTokens',
     'update:topP',
     'update:systemPrompt',
+    'update:mcpServers',
+    'update:enabledMcpServerIds',
+    'update:mcpToken',
     'commit-api-base-url',
     'select-conversation',
     'create-conversation',
@@ -207,6 +223,16 @@ defineEmits([
                 />
             </label>
         </div>
+
+        <McpServersPanel
+            :mcp-servers="mcpServers"
+            :enabled-mcp-server-ids="enabledMcpServerIds"
+            :mcp-tokens="mcpTokens"
+            :is-guest="isGuest"
+            @update:mcp-servers="$emit('update:mcpServers', $event)"
+            @update:enabled-mcp-server-ids="$emit('update:enabledMcpServerIds', $event)"
+            @update:mcp-token="$emit('update:mcpToken', $event)"
+        />
 
         <div class="border-t border-gray-200 dark:border-gray-800 pt-2.5">
             <div
