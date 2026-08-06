@@ -5,6 +5,7 @@ namespace App\Services\Llm;
 use App\Services\Mcp\McpToolGateway;
 use App\Services\Mcp\OpenAiToolMapper;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class ChatToolOrchestrator
 {
@@ -26,177 +27,204 @@ class ChatToolOrchestrator
             set_time_limit($timeout);
             ignore_user_abort(true);
 
-            $listed = $this->gateway->listTools($servers);
-            $tools = $listed['tools'];
-
-            if ($tools !== []) {
-                $this->emitEvent([
-                    'event' => 'mcp_tools',
-                    'tools' => $tools,
-                ]);
-            }
-
-            if ($tools === []) {
-                $detail = $listed['errors'] !== []
-                    ? implode('; ', array_map(
-                        fn (array $error): string => ($error['server_id'] ?? '?').': '.($error['message'] ?? 'unknown error'),
-                        $listed['errors'],
-                    ))
-                    : 'No tools available from configured MCP servers.';
+            try {
+                $this->runToolLoop($apiBaseUrl, $payload, $servers);
+            } catch (Throwable $exception) {
+                report($exception);
 
                 $this->emitEvent([
                     'event' => 'mcp_warning',
-                    'message' => 'MCP tools unavailable; continuing without tools. '.$detail,
+                    'message' => 'Chat stream failed: '.$exception->getMessage(),
                 ]);
 
-                $this->forwardCompletionEvents($apiBaseUrl, $payload);
+                $this->emitEvent([
+                    'choices' => [[
+                        'delta' => [
+                            'content' => "\n\n[Stream error: ".$exception->getMessage().']',
+                        ],
+                    ]],
+                ]);
+                $this->emitDone();
+            }
+        }, 200, $this->proxy->sseHeaders());
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  list<array{id: string, name?: string, url: string, token?: string|null}>  $servers
+     */
+    private function runToolLoop(string $apiBaseUrl, array $payload, array $servers): void
+    {
+        $listed = $this->gateway->listTools($servers);
+        $tools = $listed['tools'];
+
+        if ($tools !== []) {
+            $this->emitEvent([
+                'event' => 'mcp_tools',
+                'tools' => $tools,
+            ]);
+        }
+
+        if ($tools === []) {
+            $detail = $listed['errors'] !== []
+                ? implode('; ', array_map(
+                    fn (array $error): string => ($error['server_id'] ?? '?').': '.($error['message'] ?? 'unknown error'),
+                    $listed['errors'],
+                ))
+                : 'No tools available from configured MCP servers.';
+
+            $this->emitEvent([
+                'event' => 'mcp_warning',
+                'message' => 'MCP tools unavailable; continuing without tools. '.$detail,
+            ]);
+
+            $this->forwardCompletionEvents($apiBaseUrl, $payload);
+            $this->emitDone();
+
+            return;
+        }
+
+        $messages = $payload['messages'];
+        $maxRounds = max(1, (int) config('llms.mcp_max_tool_rounds', 50));
+
+        for ($round = 1; $round <= $maxRounds; $round++) {
+            $roundPayload = [
+                ...$payload,
+                'messages' => $messages,
+                'tools' => $tools,
+            ];
+
+            $accumulatedToolCalls = [];
+            $finishReason = null;
+            $earlyToolNotices = [];
+
+            foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $roundPayload) as $event) {
+                $choice = $event['choices'][0] ?? null;
+                $delta = is_array($choice) ? ($choice['delta'] ?? null) : null;
+
+                if (is_array($delta)) {
+                    $this->mergeToolCallDeltas($accumulatedToolCalls, $delta['tool_calls'] ?? null);
+                    $this->emitEarlyToolCallingNotices($accumulatedToolCalls, $servers, $earlyToolNotices, $round);
+
+                    if ($this->deltaHasVisibleText($delta)) {
+                        $this->emitEvent($event);
+                    }
+                } elseif (isset($event['usage'])) {
+                    $this->emitEvent($event);
+                }
+
+                if (is_array($choice) && isset($choice['finish_reason']) && is_string($choice['finish_reason'])) {
+                    $finishReason = $choice['finish_reason'];
+                }
+            }
+
+            $toolCalls = $this->finalizeToolCalls($accumulatedToolCalls);
+
+            if ($finishReason !== 'tool_calls' || $toolCalls === []) {
                 $this->emitDone();
 
                 return;
             }
 
-            $messages = $payload['messages'];
-            $maxRounds = max(1, (int) config('llms.mcp_max_tool_rounds', 50));
+            $messages[] = [
+                'role' => 'assistant',
+                'content' => '',
+                'tool_calls' => array_values($toolCalls),
+            ];
 
-            for ($round = 1; $round <= $maxRounds; $round++) {
-                $roundPayload = [
-                    ...$payload,
-                    'messages' => $messages,
-                    'tools' => $tools,
-                ];
-
-                $accumulatedToolCalls = [];
-                $finishReason = null;
-                $earlyToolNotices = [];
-
-                foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $roundPayload) as $event) {
-                    $choice = $event['choices'][0] ?? null;
-                    $delta = is_array($choice) ? ($choice['delta'] ?? null) : null;
-
-                    if (is_array($delta)) {
-                        $this->mergeToolCallDeltas($accumulatedToolCalls, $delta['tool_calls'] ?? null);
-                        $this->emitEarlyToolCallingNotices($accumulatedToolCalls, $servers, $earlyToolNotices, $round);
-
-                        if ($this->deltaHasVisibleText($delta)) {
-                            $this->emitEvent($event);
-                        }
-                    } elseif (isset($event['usage'])) {
-                        $this->emitEvent($event);
-                    }
-
-                    if (is_array($choice) && isset($choice['finish_reason']) && is_string($choice['finish_reason'])) {
-                        $finishReason = $choice['finish_reason'];
-                    }
-                }
-
-                $toolCalls = $this->finalizeToolCalls($accumulatedToolCalls);
-
-                if ($finishReason !== 'tool_calls' || $toolCalls === []) {
-                    $this->emitDone();
-
-                    return;
-                }
-
-                $messages[] = [
+            $this->emitEvent([
+                'event' => 'history_message',
+                'message' => [
                     'role' => 'assistant',
                     'content' => '',
                     'tool_calls' => array_values($toolCalls),
+                ],
+            ]);
+
+            foreach ($toolCalls as $index => $toolCall) {
+                $name = $toolCall['function']['name'] ?? '';
+                $rawArgs = $toolCall['function']['arguments'] ?? '{}';
+                $arguments = is_string($rawArgs) ? json_decode($rawArgs, true) : [];
+
+                if (! is_array($arguments)) {
+                    $arguments = [];
+                }
+
+                $parsed = is_string($name) ? $this->mapper->parse($name) : null;
+                $serverId = is_string($parsed['server_id'] ?? null) ? $parsed['server_id'] : '';
+                $serverName = $this->serverDisplayName($serverId, $servers);
+                $frameId = $this->thinkingFrameId($round, $index);
+                $apiToolCallId = is_string($toolCall['id'] ?? null) && $toolCall['id'] !== ''
+                    ? $toolCall['id']
+                    : $frameId;
+
+                $this->emitEvent([
+                    'event' => 'tool_status',
+                    'tool_call_id' => $frameId,
+                    'server_id' => $serverId,
+                    'server_name' => $serverName,
+                    'tool' => $name,
+                    'status' => 'calling',
+                    'arguments' => $arguments,
+                    'detail' => '',
+                ]);
+
+                $resultText = $this->gateway->callTool(
+                    is_string($name) ? $name : '',
+                    $arguments,
+                    $servers,
+                );
+
+                $isError = str_starts_with($resultText, 'Error');
+                $persistedResult = $this->truncateToolResult($resultText);
+
+                $this->emitEvent([
+                    'event' => 'tool_status',
+                    'tool_call_id' => $frameId,
+                    'server_id' => $serverId,
+                    'server_name' => $serverName,
+                    'tool' => $name,
+                    'status' => $isError ? 'error' : 'done',
+                    'arguments' => $arguments,
+                    'result' => $persistedResult,
+                    'detail' => $isError ? $this->truncateToolResult($resultText, 500) : '',
+                ]);
+
+                $toolMessage = [
+                    'role' => 'tool',
+                    'tool_call_id' => $apiToolCallId,
+                    'content' => $persistedResult,
                 ];
+
+                $messages[] = $toolMessage;
 
                 $this->emitEvent([
                     'event' => 'history_message',
-                    'message' => [
-                        'role' => 'assistant',
-                        'content' => '',
-                        'tool_calls' => array_values($toolCalls),
-                    ],
+                    'message' => $toolMessage,
+                ]);
+            }
+
+            if ($round === $maxRounds) {
+                $this->emitEvent([
+                    'event' => 'tool_status',
+                    'server_id' => '',
+                    'tool' => '',
+                    'status' => 'error',
+                    'detail' => 'Stopped after '.$maxRounds.' tool rounds.',
                 ]);
 
-                foreach ($toolCalls as $index => $toolCall) {
-                    $name = $toolCall['function']['name'] ?? '';
-                    $rawArgs = $toolCall['function']['arguments'] ?? '{}';
-                    $arguments = is_string($rawArgs) ? json_decode($rawArgs, true) : [];
+                $this->emitEvent([
+                    'choices' => [[
+                        'delta' => [
+                            'content' => "\n\n[Stopped after {$maxRounds} tool rounds.]",
+                        ],
+                    ]],
+                ]);
+                $this->emitDone();
 
-                    if (! is_array($arguments)) {
-                        $arguments = [];
-                    }
-
-                    $parsed = is_string($name) ? $this->mapper->parse($name) : null;
-                    $serverId = is_string($parsed['server_id'] ?? null) ? $parsed['server_id'] : '';
-                    $serverName = $this->serverDisplayName($serverId, $servers);
-                    $frameId = $this->thinkingFrameId($round, $index);
-                    $apiToolCallId = is_string($toolCall['id'] ?? null) && $toolCall['id'] !== ''
-                        ? $toolCall['id']
-                        : $frameId;
-
-                    $this->emitEvent([
-                        'event' => 'tool_status',
-                        'tool_call_id' => $frameId,
-                        'server_id' => $serverId,
-                        'server_name' => $serverName,
-                        'tool' => $name,
-                        'status' => 'calling',
-                        'arguments' => $arguments,
-                        'detail' => '',
-                    ]);
-
-                    $resultText = $this->gateway->callTool(
-                        is_string($name) ? $name : '',
-                        $arguments,
-                        $servers,
-                    );
-
-                    $isError = str_starts_with($resultText, 'Error');
-                    $persistedResult = $this->truncateToolResult($resultText);
-
-                    $this->emitEvent([
-                        'event' => 'tool_status',
-                        'tool_call_id' => $frameId,
-                        'server_id' => $serverId,
-                        'server_name' => $serverName,
-                        'tool' => $name,
-                        'status' => $isError ? 'error' : 'done',
-                        'arguments' => $arguments,
-                        'result' => $persistedResult,
-                        'detail' => $isError ? $this->truncateToolResult($resultText, 500) : '',
-                    ]);
-
-                    $toolMessage = [
-                        'role' => 'tool',
-                        'tool_call_id' => $apiToolCallId,
-                        'content' => $persistedResult,
-                    ];
-
-                    $messages[] = $toolMessage;
-
-                    $this->emitEvent([
-                        'event' => 'history_message',
-                        'message' => $toolMessage,
-                    ]);
-                }
-
-                if ($round === $maxRounds) {
-                    $this->emitEvent([
-                        'event' => 'tool_status',
-                        'server_id' => '',
-                        'tool' => '',
-                        'status' => 'error',
-                        'detail' => 'Stopped after '.$maxRounds.' tool rounds.',
-                    ]);
-
-                    $this->emitEvent([
-                        'choices' => [[
-                            'delta' => [
-                                'content' => "\n\n[Stopped after {$maxRounds} tool rounds.]",
-                            ],
-                        ]],
-                    ]);
-                    $this->emitDone();
-
-                    return;
-                }
+                return;
             }
-        }, 200, $this->proxy->sseHeaders());
+        }
     }
 
     /**

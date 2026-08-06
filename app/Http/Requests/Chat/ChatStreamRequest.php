@@ -28,7 +28,7 @@ class ChatStreamRequest extends FormRequest
             'system_prompt' => ['nullable', 'string', 'max:100000'],
             'messages' => ['required', 'array', 'min:1', 'max:'.ChatContentLimits::MAX_MESSAGES_PER_REQUEST],
             'messages.*.role' => ['required', 'string', Rule::in(['system', 'user', 'assistant', 'tool'])],
-            'messages.*.content' => ['required', new MessageContentRule],
+            'messages.*.content' => ['nullable', new MessageContentRule],
             'messages.*.tool_call_id' => ['sometimes', 'nullable', 'string', 'max:255'],
             'messages.*.tool_calls' => ['sometimes', 'nullable', 'array'],
             'temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
@@ -71,6 +71,39 @@ class ChatStreamRequest extends FormRequest
                                 'Sign in to send images.',
                             );
                         }
+                    }
+                }
+
+                foreach ($messages as $index => $message) {
+                    if (! is_array($message)) {
+                        continue;
+                    }
+
+                    $role = $message['role'] ?? null;
+                    $toolCalls = $message['tool_calls'] ?? null;
+                    $hasToolCalls = is_array($toolCalls) && $toolCalls !== [];
+
+                    // OpenAI tool-call carrier turns often have empty string content.
+                    if ($role === 'assistant' && $hasToolCalls) {
+                        continue;
+                    }
+
+                    if ($role === 'tool') {
+                        if (! array_key_exists('content', $message)) {
+                            $validator->errors()->add(
+                                "messages.{$index}.content",
+                                'The content field is required for tool messages.',
+                            );
+                        }
+
+                        continue;
+                    }
+
+                    if (MessageContent::isEmpty($message['content'] ?? null)) {
+                        $validator->errors()->add(
+                            "messages.{$index}.content",
+                            'The content field is required.',
+                        );
                     }
                 }
 

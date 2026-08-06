@@ -12,6 +12,7 @@ use App\Support\Chat\MessageContent;
 use App\Support\Chat\RequestPayloadSanitizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -23,28 +24,35 @@ class PromptController extends Controller
     {
         $validated = $request->validated();
 
-        $position = ((int) $conversation->prompts()->max('position')) + 1;
+        $props = DB::transaction(function () use ($request, $conversation, $validated) {
+            $locked = Conversation::query()
+                ->whereKey($conversation->id)
+                ->lockForUpdate()
+                ->firstOrFail();
 
-        $conversation->prompts()->create([
-            'role' => $validated['role'],
-            'content' => MessageContent::encodeForStorage($validated['content'] ?? ''),
-            'tool_calls' => $validated['tool_calls'] ?? null,
-            'tool_call_id' => $validated['tool_call_id'] ?? null,
-            'reasoning' => $validated['reasoning'] ?? null,
-            'stats' => $validated['stats'] ?? null,
-            'error' => $validated['error'] ?? null,
-            'model' => $validated['model'] ?? null,
-            'params' => $validated['params'] ?? null,
-            'sent_at' => isset($validated['sent_at']) ? Carbon::createFromTimestampMs($validated['sent_at']) : null,
-            'received_at' => isset($validated['received_at']) ? Carbon::createFromTimestampMs($validated['received_at']) : null,
-            'request_payload' => RequestPayloadSanitizer::sanitize($validated['request_payload'] ?? null),
-            'position' => $position,
-        ]);
+            $position = ((int) $locked->prompts()->max('position')) + 1;
 
-        $conversation->touch();
-        $conversation->load(['prompts' => fn ($query) => $query->orderBy('position')]);
+            $locked->prompts()->create([
+                'role' => $validated['role'],
+                'content' => MessageContent::encodeForStorage($validated['content'] ?? ''),
+                'tool_calls' => $validated['tool_calls'] ?? null,
+                'tool_call_id' => $validated['tool_call_id'] ?? null,
+                'reasoning' => $validated['reasoning'] ?? null,
+                'stats' => $validated['stats'] ?? null,
+                'error' => $validated['error'] ?? null,
+                'model' => $validated['model'] ?? null,
+                'params' => $validated['params'] ?? null,
+                'sent_at' => isset($validated['sent_at']) ? Carbon::createFromTimestampMs($validated['sent_at']) : null,
+                'received_at' => isset($validated['received_at']) ? Carbon::createFromTimestampMs($validated['received_at']) : null,
+                'request_payload' => RequestPayloadSanitizer::sanitize($validated['request_payload'] ?? null),
+                'position' => $position,
+            ]);
 
-        $props = $this->presenter->props($request->user(), $conversation);
+            $locked->touch();
+            $locked->load(['prompts' => fn ($query) => $query->orderBy('position')]);
+
+            return $this->presenter->props($request->user(), $locked);
+        });
 
         if ($request->wantsJson()) {
             return response()->json($props);

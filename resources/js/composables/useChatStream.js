@@ -273,7 +273,7 @@ export function useChatStream() {
                     }
 
                     if (kind === 'history_message') {
-                        onHistoryMessage?.(parsed.message ?? null);
+                        await onHistoryMessage?.(parsed.message ?? null);
 
                         continue;
                     }
@@ -314,6 +314,10 @@ export function useChatStream() {
 
             ({ content, reasoning } = publish());
             onThinking?.(false);
+
+            if (! content && ! reasoning && ! usage) {
+                throw new Error('Model returned an empty response. Check the API URL / model and try again.');
+            }
 
             const finishedAt = performance.now();
             const stats = mapUsageStats(usage, {
