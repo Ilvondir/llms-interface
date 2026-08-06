@@ -480,14 +480,14 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [x] 4.1 JS/parse: obsługa event tool_status / mcp_warning (helper lub test)
-- [x] 4.2 Istniejące testy JS bez regresji
+- [x] 4.1 JS/parse: obsługa event tool_status / mcp_warning (helper lub test) — ec77224
+- [x] 4.2 Istniejące testy JS bez regresji — ec77224
 
 #### Manual
 
-- [x] 4.3 Panel pod system promptem: preset Exa, custom server, enable na rozmowie
-- [x] 4.4 Guest: token nie w localStorage po reload; account: hasToken po reload
-- [x] 4.5 UI pokazuje status tool i warning przy złym MCP
+- [x] 4.3 Panel pod system promptem: preset Exa, custom server, enable na rozmowie — ec77224
+- [x] 4.4 Guest: token nie w localStorage po reload; account: hasToken po reload — ec77224
+- [x] 4.5 UI pokazuje status tool i warning przy złym MCP — ec77224
 
 ### Phase 5: Historia tool turns (composer + persist)
 
