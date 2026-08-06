@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\ChatStreamRequest;
 use App\Services\Llm\ChatCompletionProxy;
 use App\Services\Llm\ChatHistoryComposer;
+use App\Services\Llm\ChatToolOrchestrator;
+use App\Services\Mcp\McpServerResolver;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -17,6 +19,8 @@ class ChatStreamController extends Controller
         ChatStreamRequest $request,
         ChatHistoryComposer $composer,
         ChatCompletionProxy $proxy,
+        ChatToolOrchestrator $orchestrator,
+        McpServerResolver $mcpServerResolver,
     ): StreamedResponse|JsonResponse {
         $validated = $request->validated();
 
@@ -52,11 +56,17 @@ class ChatStreamController extends Controller
             $payload['max_tokens'] = (int) $validated['max_tokens'];
         }
 
+        $servers = $mcpServerResolver->resolve($request->user(), $validated);
+
         // Release the session lock before the long-lived upstream stream.
         $request->session()->save();
 
         try {
-            return $proxy->streamChatCompletions($validated['api_base_url'], $payload);
+            if ($servers === []) {
+                return $proxy->streamChatCompletions($validated['api_base_url'], $payload);
+            }
+
+            return $orchestrator->stream($validated['api_base_url'], $payload, $servers);
         } catch (RuntimeException $exception) {
             $status = $exception->getCode() >= 400 && $exception->getCode() < 600
                 ? (int) $exception->getCode()

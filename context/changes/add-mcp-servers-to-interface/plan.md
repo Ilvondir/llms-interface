@@ -452,29 +452,29 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Automated
 
-- [x] 2.1 Unit: mapper prefix/strip + kolizje nazw
-- [x] 2.2 Unit/feature: gateway list/call (z fake tam gdzie możliwe)
-- [x] 2.3 Config llms.php limity MCP
-- [x] 2.4 Pint dirty
+- [x] 2.1 Unit: mapper prefix/strip + kolizje nazw — 86c842e
+- [x] 2.2 Unit/feature: gateway list/call (z fake tam gdzie możliwe) — 86c842e
+- [x] 2.3 Config llms.php limity MCP — 86c842e
+- [x] 2.4 Pint dirty — 86c842e
 
 #### Manual
 
-- [x] 2.5 Opcjonalnie: ręczne tools/list na Exa z siecią
+- [x] 2.5 Opcjonalnie: ręczne tools/list na Exa z siecią — 86c842e
 
 ### Phase 3: Chat orchestrator (tool loop + SSE)
 
 #### Automated
 
-- [ ] 3.1 Feature: multi-round tool loop (Http::fake sequence) + tool_status events
-- [ ] 3.2 Feature: soft-fail discovery → mcp_warning + stream bez tools
-- [ ] 3.3 Feature: auth ignoruje mcp_credentials z body
-- [ ] 3.4 Feature: max rounds cut-off
-- [ ] 3.5 Regresja ChatStreamProxyTest bez MCP
-- [ ] 3.6 Pint dirty
+- [x] 3.1 Feature: multi-round tool loop (Http::fake sequence) + tool_status events
+- [x] 3.2 Feature: soft-fail discovery → mcp_warning + stream bez tools
+- [x] 3.3 Feature: auth ignoruje mcp_credentials z body
+- [x] 3.4 Feature: max rounds cut-off
+- [x] 3.5 Regresja ChatStreamProxyTest bez MCP
+- [x] 3.6 Pint dirty
 
 #### Manual
 
-- [ ] 3.7 Ręcznie: Exa + model z tools → status + finalna odpowiedź
+- [x] 3.7 Ręcznie: Exa + model z tools → status + finalna odpowiedź
 
 ### Phase 4: Frontend (panel + stream status)
 

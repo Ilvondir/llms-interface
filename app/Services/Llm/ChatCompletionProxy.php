@@ -84,12 +84,102 @@ class ChatCompletionProxy
             } finally {
                 $upstream->close();
             }
-        }, 200, [
+        }, 200, $this->sseHeaders());
+    }
+
+    /**
+     * Iterate decoded SSE JSON payloads from an upstream chat completions stream.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return \Generator<int, array<string, mixed>>
+     */
+    public function eachSseJsonEvent(string $apiBaseUrl, array $payload): \Generator
+    {
+        $apiRoot = $this->normalizeApiRoot($apiBaseUrl);
+        $url = $apiRoot.'/chat/completions';
+        $timeout = $this->chatTimeoutSeconds();
+        $connectTimeout = max(1, (int) config('llms.connect_timeout', 10));
+
+        set_time_limit($timeout);
+        ignore_user_abort(true);
+        ini_set('default_socket_timeout', (string) $timeout);
+
+        $upstream = Http::accept('text/event-stream')
+            ->asJson()
+            ->timeout($timeout)
+            ->connectTimeout($connectTimeout)
+            ->withOptions([
+                'stream' => true,
+                'read_timeout' => $timeout,
+            ])
+            ->post($url, [
+                ...$payload,
+                'stream' => true,
+            ]);
+
+        if ($upstream->failed()) {
+            $status = $upstream->status();
+            $body = $this->safeBodyPreview($upstream);
+
+            throw new RuntimeException(
+                "Upstream chat completions failed with HTTP {$status}: {$body}",
+                $status >= 400 ? $status : 502,
+            );
+        }
+
+        $psrBody = $upstream->toPsrResponse()->getBody();
+        $buffer = '';
+
+        try {
+            while (! $psrBody->eof()) {
+                if (connection_aborted()) {
+                    break;
+                }
+
+                $buffer .= $psrBody->read(1024);
+
+                while (($pos = strpos($buffer, "\n")) !== false) {
+                    $line = substr($buffer, 0, $pos);
+                    $buffer = substr($buffer, $pos + 1);
+                    $line = rtrim($line, "\r");
+
+                    if (! str_starts_with($line, 'data:')) {
+                        continue;
+                    }
+
+                    $data = trim(substr($line, 5));
+
+                    if ($data === '') {
+                        continue;
+                    }
+
+                    if ($data === '[DONE]') {
+                        return;
+                    }
+
+                    $json = json_decode($data, true);
+
+                    if (is_array($json)) {
+                        yield $json;
+                    }
+                }
+            }
+        } finally {
+            $upstream->close();
+        }
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function sseHeaders(): array
+    {
+        return [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache, no-transform',
             'Connection' => 'keep-alive',
             'X-Accel-Buffering' => 'no',
-        ]);
+        ];
     }
 
     public function chatTimeoutSeconds(): int

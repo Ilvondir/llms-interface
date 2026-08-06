@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Discovers and invokes tools on user-configured HTTP MCP servers.
  */
-final class McpToolGateway
+class McpToolGateway
 {
     /**
      * @param  (Closure(string $serverId, string $url, ?string $token): Client)|null  $clientFactory
