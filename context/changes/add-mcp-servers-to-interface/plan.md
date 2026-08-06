@@ -512,4 +512,4 @@ Uzupełnić lukę testową wg decyzji 10A; regresje guest/account/vision.
 
 #### Manual
 
-- [x] 6.4 Smoke guest bez MCP + account Exa happy path
+- [x] 6.4 Smoke guest bez MCP + account Exa happy path — 1ef7f72
