@@ -15,7 +15,7 @@ import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { contentPlainText, isContentEmpty } from '@/utils/contentParts';
 import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
 import { buildUserMessageContent } from '@/utils/imageAttach';
-import { mcpCallFromToolStatus } from '@/utils/streamEvents';
+import { isToolChainMessage, mcpCallFromToolStatus } from '@/utils/streamEvents';
 
 const props = defineProps({
     chatSettings: {
@@ -182,25 +182,11 @@ const historyForModel = () => (
         .filter((message) => (
             message.role === 'user'
             || message.role === 'assistant'
-            || message.role === 'tool'
         ))
+        // Prior MCP/tool rounds stay visible in the transcript but are not resent
+        // to the model — only user turns and final assistant answers.
+        .filter((message) => ! isToolChainMessage(message))
         .map((message) => {
-            if (message.role === 'tool') {
-                return {
-                    role: 'tool',
-                    tool_call_id: message.toolCallId ?? message.tool_call_id,
-                    content: typeof message.content === 'string' ? message.content : '',
-                };
-            }
-
-            if (message.role === 'assistant' && Array.isArray(message.toolCalls) && message.toolCalls.length > 0) {
-                return {
-                    role: 'assistant',
-                    content: typeof message.content === 'string' ? message.content : '',
-                    tool_calls: message.toolCalls,
-                };
-            }
-
             let content = message.content;
 
             if (message.role === 'assistant' && typeof content === 'string') {
@@ -212,17 +198,7 @@ const historyForModel = () => (
                 content,
             };
         })
-        .filter((message) => {
-            if (message.role === 'tool') {
-                return typeof message.tool_call_id === 'string' && message.tool_call_id !== '';
-            }
-
-            if (message.role === 'assistant' && Array.isArray(message.tool_calls) && message.tool_calls.length > 0) {
-                return true;
-            }
-
-            return ! isContentEmpty(message.content);
-        })
+        .filter((message) => ! isContentEmpty(message.content))
 );
 
 const commitApiBaseUrl = async (rawUrl, { persist = true } = {}) => {

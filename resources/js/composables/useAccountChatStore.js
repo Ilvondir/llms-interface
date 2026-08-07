@@ -31,9 +31,8 @@ const normalizeMcpServers = (servers) => {
 
             return {
                 id,
-                name: typeof server.name === 'string' && server.name.trim() !== ''
-                    ? server.name.trim()
-                    : id,
+                // Keep spaces while typing — trim only when persisting to the API.
+                name: typeof server.name === 'string' ? server.name : id,
                 url: typeof server.url === 'string' ? server.url.trim() : '',
                 hasToken: Boolean(server.hasToken),
             };
@@ -226,7 +225,11 @@ export function useAccountChatStore(initialProps = {}) {
         toast.error(message);
     };
 
-    const syncAfterJsonMutation = (props, { expectedConversationId = null, syncMcpServers = false } = {}) => {
+    const syncAfterJsonMutation = (props, {
+        expectedConversationId = null,
+        syncMcpServers = false,
+        syncEnabledMcpServerIds = true,
+    } = {}) => {
         if (expectedConversationId != null && state.activeConversation?.id != expectedConversationId) {
             return;
         }
@@ -283,7 +286,9 @@ export function useAccountChatStore(initialProps = {}) {
                 };
             }
 
-            if (props.activeConversation.enabledMcpServerIds !== undefined) {
+            // Chat-settings PATCH also returns activeConversation, but must not clobber
+            // local enables (e.g. checked before URL was persisted / conversation patched).
+            if (syncEnabledMcpServerIds && props.activeConversation.enabledMcpServerIds !== undefined) {
                 const known = new Set(state.settings.mcpServers.map((server) => server.id));
                 const fromServer = normalizeEnabledMcpServerIds(props.activeConversation.enabledMcpServerIds)
                     .filter((id) => known.has(id));
@@ -398,9 +403,10 @@ export function useAccountChatStore(initialProps = {}) {
                 }
 
                 payload.mcp_servers = servers.map((server) => {
+                    const trimmedName = typeof server.name === 'string' ? server.name.trim() : '';
                     const row = {
                         id: server.id,
-                        name: server.name,
+                        name: trimmedName !== '' ? trimmedName : server.id,
                         url: server.url,
                     };
                     const pending = pendingMcpTokens[server.id];
@@ -427,6 +433,7 @@ export function useAccountChatStore(initialProps = {}) {
             syncAfterJsonMutation(props, {
                 expectedConversationId,
                 syncMcpServers: includeMcpServers,
+                syncEnabledMcpServerIds: false,
             });
 
             if (includeMcpServers && state.activeConversation?.id) {

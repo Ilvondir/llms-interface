@@ -26,9 +26,8 @@ const normalizeMcpServers = (servers) => {
 
             return {
                 id,
-                name: typeof server.name === 'string' && server.name.trim() !== ''
-                    ? server.name.trim()
-                    : id,
+                // Keep spaces while typing — trim only when writing to localStorage.
+                name: typeof server.name === 'string' ? server.name : id,
                 url: typeof server.url === 'string' ? server.url.trim() : '',
             };
         })
@@ -148,7 +147,14 @@ const writeStorage = (state) => {
                 ...defaultParams(),
                 ...(state.settings.defaultParams ?? {}),
             },
-            mcpServers: normalizeMcpServers(state.settings.mcpServers),
+            mcpServers: normalizeMcpServers(state.settings.mcpServers).map((server) => {
+                const trimmedName = typeof server.name === 'string' ? server.name.trim() : '';
+
+                return {
+                    ...server,
+                    name: trimmedName !== '' ? trimmedName : server.id,
+                };
+            }),
         },
         conversations: conversations.map((conversation) => ({
             ...conversation,

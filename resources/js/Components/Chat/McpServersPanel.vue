@@ -135,17 +135,18 @@ const onTokenInput = (id, value) => {
             class="space-y-1.5 rounded border border-gray-200 dark:border-gray-800 p-2"
         >
             <div class="flex items-center justify-between gap-2">
-                <label class="flex items-center gap-1.5 min-w-0">
+                <div class="flex items-center gap-1.5 min-w-0">
                     <input
                         type="checkbox"
                         class="rounded border-gray-300 dark:border-gray-600 text-gray-900 focus:ring-gray-500"
                         :checked="enabledSet.has(server.id)"
+                        :aria-label="`Enable ${server.name || server.id}`"
                         @change="toggleEnabled(server.id, $event.target.checked)"
                     >
                     <span class="truncate font-medium text-gray-700 dark:text-gray-200">
                         {{ server.name || server.id }}
                     </span>
-                </label>
+                </div>
                 <button
                     type="button"
                     class="shrink-0 text-[10px] text-red-600 dark:text-red-400 hover:underline"

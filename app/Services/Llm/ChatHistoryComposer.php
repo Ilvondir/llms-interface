@@ -26,31 +26,14 @@ class ChatHistoryComposer
         foreach ($messages as $message) {
             $role = $message['role'] ?? null;
 
+            // Prior tool rounds stay in the UI/DB but are omitted from upstream history
+            // so small-context models are not flooded with tool payloads. The current
+            // turn's tool loop still appends calls/results inside ChatToolOrchestrator.
             if ($role === 'tool') {
-                $toolCallId = $message['tool_call_id'] ?? '';
-                $content = $message['content'] ?? '';
-
-                if (! is_string($toolCallId) || $toolCallId === '') {
-                    continue;
-                }
-
-                $composed[] = [
-                    'role' => 'tool',
-                    'tool_call_id' => $toolCallId,
-                    'content' => is_string($content) ? $content : '',
-                ];
-
                 continue;
             }
 
             if ($role === 'assistant' && isset($message['tool_calls']) && is_array($message['tool_calls']) && $message['tool_calls'] !== []) {
-                $content = $message['content'] ?? '';
-                $composed[] = [
-                    'role' => 'assistant',
-                    'content' => is_string($content) ? $content : '',
-                    'tool_calls' => $message['tool_calls'],
-                ];
-
                 continue;
             }
 

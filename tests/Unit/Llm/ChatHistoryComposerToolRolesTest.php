@@ -9,12 +9,12 @@ use Tests\TestCase;
 class ChatHistoryComposerToolRolesTest extends TestCase
 {
     #[Test]
-    public function it_composes_assistant_tool_calls_and_tool_results(): void
+    public function it_omits_prior_assistant_tool_calls_and_tool_results_from_upstream_history(): void
     {
         $composer = new ChatHistoryComposer;
 
         $composed = $composer->compose(null, [
-            ['role' => 'user', 'content' => 'Hi'],
+            ['role' => 'user', 'content' => 'Search the web'],
             [
                 'role' => 'assistant',
                 'content' => '',
@@ -27,15 +27,16 @@ class ChatHistoryComposerToolRolesTest extends TestCase
             [
                 'role' => 'tool',
                 'tool_call_id' => 'call_1',
-                'content' => 'result',
+                'content' => 'huge tool payload '.str_repeat('x', 200),
             ],
+            ['role' => 'assistant', 'content' => 'Here is what I found.'],
+            ['role' => 'user', 'content' => 'Thanks — summarize again'],
         ]);
 
-        $this->assertSame('user', $composed[0]['role']);
-        $this->assertSame('assistant', $composed[1]['role']);
-        $this->assertArrayHasKey('tool_calls', $composed[1]);
-        $this->assertSame('tool', $composed[2]['role']);
-        $this->assertSame('call_1', $composed[2]['tool_call_id']);
-        $this->assertSame('result', $composed[2]['content']);
+        $this->assertSame([
+            ['role' => 'user', 'content' => 'Search the web'],
+            ['role' => 'assistant', 'content' => 'Here is what I found.'],
+            ['role' => 'user', 'content' => 'Thanks — summarize again'],
+        ], $composed);
     }
 }

@@ -72,9 +72,9 @@ describe('composeModelMessages', () => {
         ]);
     });
 
-    it('passes assistant tool_calls and tool result messages through', () => {
+    it('omits prior assistant tool_calls and tool result messages from upstream history', () => {
         const messages = composeModelMessages(null, [
-            { role: 'user', content: 'Hi' },
+            { role: 'user', content: 'Search the web' },
             {
                 role: 'assistant',
                 content: '',
@@ -84,14 +84,16 @@ describe('composeModelMessages', () => {
                     function: { name: 'exa__search', arguments: '{}' },
                 }],
             },
-            { role: 'tool', toolCallId: 'call_1', content: 'result' },
+            { role: 'tool', toolCallId: 'call_1', content: 'huge tool payload' },
+            { role: 'assistant', content: 'Here is what I found.' },
+            { role: 'user', content: 'Thanks — summarize again' },
         ]);
 
-        assert.equal(messages.length, 3);
-        assert.equal(messages[1].role, 'assistant');
-        assert.ok(Array.isArray(messages[1].tool_calls));
-        assert.equal(messages[2].role, 'tool');
-        assert.equal(messages[2].tool_call_id, 'call_1');
+        assert.deepEqual(messages, [
+            { role: 'user', content: 'Search the web' },
+            { role: 'assistant', content: 'Here is what I found.' },
+            { role: 'user', content: 'Thanks — summarize again' },
+        ]);
     });
 });
 

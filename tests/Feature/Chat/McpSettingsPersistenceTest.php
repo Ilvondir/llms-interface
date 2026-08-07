@@ -177,6 +177,28 @@ class McpSettingsPersistenceTest extends TestCase
     }
 
     #[Test]
+    public function settings_patch_accepts_mcp_server_names_with_spaces(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patchJson(route('chat-settings.update'), [
+                'mcp_servers' => [
+                    [
+                        'id' => 'exa',
+                        'name' => 'Exa Search Tools',
+                        'url' => 'https://mcp.exa.ai/mcp',
+                    ],
+                ],
+            ])
+            ->assertOk()
+            ->assertJsonPath('chatSettings.mcpServers.0.name', 'Exa Search Tools');
+
+        $settings = UserChatSettings::query()->where('user_id', $user->id)->firstOrFail();
+        $this->assertSame('Exa Search Tools', $settings->mcp_servers[0]['name']);
+    }
+
+    #[Test]
     public function merge_helper_replaces_token_when_non_empty(): void
     {
         $merged = McpServerConfig::mergeForStorage(

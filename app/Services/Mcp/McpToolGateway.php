@@ -5,7 +5,6 @@ namespace App\Services\Mcp;
 use Closure;
 use Laravel\Mcp\Client;
 use Laravel\Mcp\Client\Primitives\Tool;
-use Laravel\Mcp\WebClient;
 use Throwable;
 
 /**
@@ -147,8 +146,9 @@ class McpToolGateway
             return ($this->clientFactory)($serverId, $url, $token);
         }
 
-        /** @var WebClient $client */
-        $client = Client::web($url)->withTimeout((float) config('llms.mcp_client_timeout', 30));
+        /** @var CompatibleWebClient $client */
+        $client = CompatibleWebClient::connectTo($url)
+            ->withTimeout((float) config('llms.mcp_client_timeout', 30));
 
         if ($token !== null) {
             $client->withToken($token);

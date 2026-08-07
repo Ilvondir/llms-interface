@@ -21,31 +21,15 @@ export function composeModelMessages(systemPrompt, messages) {
     for (const message of messages ?? []) {
         const role = message?.role;
 
+        // Mirror ChatHistoryComposer: omit prior tool rounds from upstream history.
+        // Current-turn tool loops are appended server-side by ChatToolOrchestrator.
         if (role === 'tool') {
-            const toolCallId = message?.tool_call_id ?? message?.toolCallId;
-
-            if (typeof toolCallId !== 'string' || toolCallId === '') {
-                continue;
-            }
-
-            composed.push({
-                role: 'tool',
-                tool_call_id: toolCallId,
-                content: typeof message?.content === 'string' ? message.content : '',
-            });
-
             continue;
         }
 
         const toolCalls = message?.tool_calls ?? message?.toolCalls;
 
         if (role === 'assistant' && Array.isArray(toolCalls) && toolCalls.length > 0) {
-            composed.push({
-                role: 'assistant',
-                content: typeof message?.content === 'string' ? message.content : '',
-                tool_calls: toolCalls,
-            });
-
             continue;
         }
 
