@@ -504,6 +504,7 @@ export function useAccountChatStore(initialProps = {}) {
 
     const blankDraft = (source = null) => {
         const from = source ?? state.activeConversation;
+        const knownIds = new Set(state.settings.mcpServers.map((server) => server.id));
 
         return {
             id: null,
@@ -514,7 +515,8 @@ export function useAccountChatStore(initialProps = {}) {
                 ...defaultParams(),
                 ...(from?.params ?? state.settings.defaultParams),
             },
-            enabledMcpServerIds: normalizeEnabledMcpServerIds(from?.enabledMcpServerIds ?? []),
+            enabledMcpServerIds: normalizeEnabledMcpServerIds(from?.enabledMcpServerIds ?? [])
+                .filter((id) => knownIds.has(id)),
             messages: [],
             createdAt: Date.now(),
             updatedAt: Date.now(),
@@ -545,10 +547,22 @@ export function useAccountChatStore(initialProps = {}) {
             return state.activeConversation;
         }
 
-        const source = state.activeConversation;
+        // Snapshot before prepareNavigation — flush/sync can mutate the live
+        // conversation (e.g. wipe local MCP enables) before we copy them over.
+        const current = state.activeConversation;
+        const carryOver = {
+            systemPrompt: current.systemPrompt ?? '',
+            model: current.model ?? '',
+            params: {
+                ...defaultParams(),
+                ...(current.params ?? {}),
+            },
+            enabledMcpServerIds: normalizeEnabledMcpServerIds(current.enabledMcpServerIds),
+        };
+
         await prepareNavigation();
         state.pendingAssistant = null;
-        state.activeConversation = blankDraft(source);
+        state.activeConversation = blankDraft(carryOver);
         state.settings.activeConversationId = null;
 
         return state.activeConversation;

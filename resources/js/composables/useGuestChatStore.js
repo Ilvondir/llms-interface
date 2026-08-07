@@ -200,8 +200,11 @@ export const toModelMessages = (conversation) => {
     return messages;
 };
 
-const createConversationRecord = ({ draft = false, source = null } = {}) => {
+const createConversationRecord = ({ draft = false, source = null, knownMcpServerIds = null } = {}) => {
     const timestamp = now();
+    const known = knownMcpServerIds instanceof Set
+        ? knownMcpServerIds
+        : null;
 
     return {
         id: draft ? GUEST_DRAFT_ID : crypto.randomUUID(),
@@ -214,7 +217,8 @@ const createConversationRecord = ({ draft = false, source = null } = {}) => {
             ...defaultParams(),
             ...(source?.params ?? {}),
         },
-        enabledMcpServerIds: normalizeEnabledMcpServerIds(source?.enabledMcpServerIds ?? []),
+        enabledMcpServerIds: normalizeEnabledMcpServerIds(source?.enabledMcpServerIds ?? [])
+            .filter((id) => known == null || known.has(id)),
         messages: [],
     };
 };
@@ -257,7 +261,8 @@ export function useGuestChatStore() {
     );
 
     const beginDraft = (source = null) => {
-        state.draft = createConversationRecord({ draft: true, source });
+        const knownMcpServerIds = new Set(state.settings.mcpServers.map((server) => server.id));
+        state.draft = createConversationRecord({ draft: true, source, knownMcpServerIds });
         if (! source) {
             state.draft.params = {
                 ...defaultParams(),
@@ -299,7 +304,16 @@ export function useGuestChatStore() {
             return active;
         }
 
-        return beginDraft(active);
+        // Plain snapshot so carry-over (incl. MCP enables) matches model/params.
+        return beginDraft({
+            systemPrompt: active.systemPrompt ?? '',
+            model: active.model ?? '',
+            params: {
+                ...defaultParams(),
+                ...(active.params ?? {}),
+            },
+            enabledMcpServerIds: normalizeEnabledMcpServerIds(active.enabledMcpServerIds),
+        });
     };
 
     const selectConversation = (id) => {
