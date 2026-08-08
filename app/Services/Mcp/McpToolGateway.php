@@ -130,6 +130,13 @@ class McpToolGateway
                 return is_string($encoded) ? $encoded : 'Tool returned structured content that could not be encoded.';
             }
 
+            // Non-text MCP content blocks (resource, resource_link, image, …).
+            if ($result->content !== []) {
+                $encoded = json_encode($result->content, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+                return is_string($encoded) ? $encoded : 'Tool returned content that could not be encoded.';
+            }
+
             return '';
         } catch (Throwable $exception) {
             return 'Error calling tool "'.$prefixedName.'": '.$exception->getMessage();

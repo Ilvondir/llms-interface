@@ -201,9 +201,23 @@ final class MessageContent
             return false;
         }
 
-        $first = $parts[0] ?? null;
+        // Only treat as OpenAI chat multimodal content when every part uses a
+        // type we support (text | image_url). MCP tool payloads often look like
+        // [{ "type": "resource", ... }] / resource_link / etc. and must stay
+        // opaque strings — otherwise validation rejects them as "unsupported type".
+        foreach ($parts as $part) {
+            if (! is_array($part) || ! array_key_exists('type', $part)) {
+                return false;
+            }
 
-        return is_array($first) && array_key_exists('type', $first);
+            $type = $part['type'];
+
+            if ($type !== 'text' && $type !== 'image_url') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -4,6 +4,7 @@ namespace Tests\Unit\Mcp;
 
 use App\Services\Mcp\McpToolGateway;
 use App\Services\Mcp\OpenAiToolMapper;
+use App\Support\Chat\MessageContent;
 use Illuminate\Support\Collection;
 use Laravel\Mcp\Client;
 use Laravel\Mcp\Client\Primitives\Tool;
@@ -85,12 +86,36 @@ class McpToolGatewayTest extends TestCase
     }
 
     #[Test]
-    public function call_tool_returns_error_string_when_server_missing(): void
+    public function call_tool_serializes_non_text_mcp_content_blocks(): void
     {
-        $gateway = new McpToolGateway(new OpenAiToolMapper);
+        $client = $this->createMock(Client::class);
+        $client->expects($this->once())
+            ->method('callTool')
+            ->with('get_file_contents', ['owner' => 'laravel', 'repo' => 'framework'])
+            ->willReturn(new ToolResult(
+                content: [[
+                    'type' => 'resource_link',
+                    'uri' => 'https://github.com/laravel/framework',
+                    'name' => 'laravel/framework',
+                ]],
+                isError: false,
+            ));
+        $client->method('connected')->willReturn(false);
 
-        $text = $gateway->callTool('missing__search', [], []);
+        $gateway = new McpToolGateway(
+            new OpenAiToolMapper,
+            fn (): Client => $client,
+        );
 
-        $this->assertStringContainsString('not configured', $text);
+        $text = $gateway->callTool('github__get_file_contents', [
+            'owner' => 'laravel',
+            'repo' => 'framework',
+        ], [
+            ['id' => 'github', 'url' => 'https://mcp.example.test/mcp', 'token' => 'k'],
+        ]);
+
+        $this->assertStringContainsString('resource_link', $text);
+        $this->assertStringContainsString('laravel/framework', $text);
+        $this->assertNull(MessageContent::validationError($text));
     }
 }

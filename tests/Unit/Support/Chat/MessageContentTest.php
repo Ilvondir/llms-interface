@@ -54,4 +54,45 @@ class MessageContentTest extends TestCase
         $this->assertNotNull($error);
         $this->assertStringContainsString('at most', $error);
     }
+
+    #[Test]
+    public function it_treats_mcp_style_typed_json_strings_as_opaque_text(): void
+    {
+        $mcpPayload = json_encode([
+            [
+                'type' => 'resource_link',
+                'uri' => 'https://github.com/laravel/framework',
+                'name' => 'laravel/framework',
+            ],
+        ], JSON_UNESCAPED_SLASHES);
+
+        $this->assertIsString($mcpPayload);
+        $this->assertNull(MessageContent::validationError($mcpPayload));
+        $this->assertSame($mcpPayload, MessageContent::encodeForStorage($mcpPayload));
+        $this->assertSame($mcpPayload, MessageContent::decodeFromStorage($mcpPayload));
+    }
+
+    #[Test]
+    public function it_does_not_treat_mixed_mcp_types_as_multimodal_parts(): void
+    {
+        $parts = [
+            ['type' => 'text', 'text' => 'README'],
+            ['type' => 'resource', 'resource' => ['uri' => 'file://README.md', 'text' => '# Hi']],
+        ];
+
+        $this->assertFalse(MessageContent::looksLikeParts($parts));
+
+        $asString = (string) json_encode($parts, JSON_UNESCAPED_SLASHES);
+        $this->assertNull(MessageContent::validationError($asString));
+    }
+
+    #[Test]
+    public function it_still_rejects_unsupported_types_when_sent_as_content_array(): void
+    {
+        $error = MessageContent::validationError([
+            ['type' => 'resource_link', 'uri' => 'https://example.test'],
+        ]);
+
+        $this->assertSame('Content part at index 0 has an unsupported type.', $error);
+    }
 }
