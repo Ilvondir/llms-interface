@@ -43,19 +43,25 @@ const formatDuration = (ms) => {
             </span>
             <span
                 v-if="stats.inputTokens != null"
-                title="Actual prompt tokens from the model (system + history + this message)"
+                title="Actual prompt tokens from the model (system + history + this message + tool definitions when tools were sent)"
             >
                 prompt {{ stats.inputTokens }}
             </span>
             <span
                 v-else-if="stats.promptTokensEstimated != null"
-                title="Estimated full prompt (system + history + this message)"
+                title="Estimated full prompt (system + history + this message + tool definitions)"
             >
                 prompt ≈ {{ stats.promptTokensEstimated }}
             </span>
             <span
+                v-if="stats.toolsTokensEstimated != null"
+                title="Estimated tokens for MCP/tool definitions sent with this request"
+            >
+                tools ≈ {{ stats.toolsTokensEstimated }}
+            </span>
+            <span
                 v-if="stats.historyTokens != null && (stats.inputTokens != null || stats.promptTokensEstimated != null)"
-                title="Approximate history + system share of the prompt"
+                title="Approximate history + system share of the prompt (prompt − question − tools)"
             >
                 history ≈ {{ stats.historyTokens }}
             </span>

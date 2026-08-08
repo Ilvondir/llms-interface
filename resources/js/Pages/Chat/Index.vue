@@ -13,7 +13,7 @@ import { GUEST_DRAFT_ID, useGuestChatStore } from '@/composables/useGuestChatSto
 import { splitThinkTaggedContent } from '@/utils/assistantOutput';
 import { buildUpstreamRequest } from '@/utils/buildUpstreamRequest';
 import { contentPlainText, isContentEmpty } from '@/utils/contentParts';
-import { estimatePromptTokens, estimateTokenCount } from '@/utils/estimateTokens';
+import { estimatePromptTokens, estimateTokenCount, estimateToolsTokens } from '@/utils/estimateTokens';
 import { buildUserMessageContent } from '@/utils/imageAttach';
 import { isToolChainMessage, mcpCallFromToolStatus } from '@/utils/streamEvents';
 
@@ -297,19 +297,24 @@ const sendMessage = async (payload) => {
     });
 
     const enrichStats = (stats) => {
+        const current = (store.value.messages.value ?? []).find((m) => m.id === assistant.id);
+        const tools = current?.requestPayload?.tools ?? requestPayload?.tools ?? [];
         const questionTokens = estimateTokenCount(contentPlainText(content));
+        const toolsTokensEstimated = estimateToolsTokens(tools);
         const promptTokensEstimated = estimatePromptTokens({
             systemPrompt: systemPrompt.value,
             messages: outboundMessages,
+            tools,
         });
         const promptTokens = stats?.inputTokens ?? null;
         const historyTokens = promptTokens != null
-            ? Math.max(0, promptTokens - questionTokens)
-            : Math.max(0, promptTokensEstimated - questionTokens);
+            ? Math.max(0, promptTokens - questionTokens - toolsTokensEstimated)
+            : Math.max(0, promptTokensEstimated - questionTokens - toolsTokensEstimated);
 
         return {
             ...(stats ?? {}),
             questionTokens,
+            toolsTokensEstimated: toolsTokensEstimated > 0 ? toolsTokensEstimated : null,
             promptTokensEstimated,
             historyTokens,
             usageSource: stats?.usageSource ?? (stats?.inputTokens != null ? 'upstream' : 'client'),

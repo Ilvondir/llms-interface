@@ -26,12 +26,41 @@ export function estimateTokenCount(text) {
 }
 
 /**
- * Estimate tokens for the payload the backend composes (system + history).
+ * Estimate tokens for OpenAI-style tools[] definitions sent with the request.
  *
- * @param {{ systemPrompt?: string|null, messages?: Array<{ content?: string }> }} input
+ * @param {unknown} tools
  * @returns {number}
  */
-export function estimatePromptTokens({ systemPrompt = null, messages = [] } = {}) {
+export function estimateToolsTokens(tools) {
+    if (! Array.isArray(tools) || tools.length === 0) {
+        return 0;
+    }
+
+    try {
+        const encoded = JSON.stringify(tools);
+
+        if (typeof encoded !== 'string' || encoded === '') {
+            return 0;
+        }
+
+        // Framing overhead for the tools block itself.
+        return estimateTokenCount(encoded) + 4;
+    } catch {
+        return 0;
+    }
+}
+
+/**
+ * Estimate tokens for the payload the backend composes (system + history + tools).
+ *
+ * @param {{
+ *   systemPrompt?: string|null,
+ *   messages?: Array<{ content?: string }>,
+ *   tools?: unknown,
+ * }} input
+ * @returns {number}
+ */
+export function estimatePromptTokens({ systemPrompt = null, messages = [], tools = null } = {}) {
     let total = 0;
 
     if (typeof systemPrompt === 'string' && systemPrompt.trim() !== '') {
@@ -42,6 +71,8 @@ export function estimatePromptTokens({ systemPrompt = null, messages = [] } = {}
     for (const message of messages) {
         total += estimateTokenCount(message?.content) + 4;
     }
+
+    total += estimateToolsTokens(tools);
 
     return total;
 }
