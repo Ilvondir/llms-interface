@@ -93,10 +93,5 @@ Optional demo user from the default seeder (`php artisan db:seed`):
 
 ## First Look
 
-Add screenshots under `public/firstlook/` and link them here, for example:
-
-```markdown
-![firstlook1](public/firstlook/firstlook1.png?raw=true)
 ![firstlook2](public/firstlook/firstlook2.png?raw=true)
-![firstlook3](public/firstlook/firstlook3.png?raw=true)
-```
+![firstlook1](public/firstlook/firstlook1.png?raw=true)
