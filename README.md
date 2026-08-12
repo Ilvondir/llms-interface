@@ -1,58 +1,100 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# LLMsInterface
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+LLMsInterface is a web application that provides a ChatGPT/Gemini-like chat UI over a locally hosted language model API. It is built with the Laravel framework. In addition to Laravel, Vue was also used. These frameworks were integrated using the Inertia framework that allows for building SPA applications despite following the MVC architecture. Authentication and account scaffolding come from Laravel Jetstream and Fortify. The application is designed to talk to an OpenAI-compatible chat endpoint (for example LM Studio exposed through a tunnel such as ngrok).
 
-## About Laravel
+The application lets you set the model API base URL, tune generation parameters, edit the system prompt per conversation, and chat with streaming replies. Reasoning (thinking) is stored and shown separately from the answer and is never sent back into the model history. Response stats such as prompt/output tokens, tokens per second, and time-to-first-token are displayed under each assistant message.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Logged-in users persist conversations and prompts in the database (PostgreSQL in production / Sail; SQLite is fine for a quick local start). Guests can use the full chat experience with browser-local persistence only — their conversations are never written to server conversation tables.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+The application can attach images when the upstream model supports vision. It also integrates HTTP MCP servers so the model can discover and call external tools (for example search or GitHub helpers) during a reply. Tool-call rounds stay visible in the transcript, while prior tool payloads are omitted from later prompt history to keep small local context windows usable.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+Markdown replies are rendered on the frontend with Marked and sanitized with DOMPurify. Toast notifications use Vue Toastification.
 
-## Learning Laravel
+## Used Tools
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### Backend
+- PHP 8.4
+- Laravel 13.23.0
+- Inertia.js (Laravel) 2.0.24
+- Laravel Jetstream 5.5.3
+- Laravel Fortify 1.37.3
+- Laravel Sanctum 4.3.3
+- Laravel MCP 0.9.1
+- Ziggy 2.6.3
+- Sail 1.64.0
+- PHPUnit 12.5.33
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Frontend
+- HTML 5
+- CSS 3
+- JavaScript (ES modules)
+- Vue 3.5.40
+- Inertia.js (Vue) 2.3.27
+- Tailwind CSS 3.4.19
+- Vite 8.2.0
+- Marked 18.0.9
+- isomorphic-dompurify 3.19.0
+- Vue Toastification 2.0.0-rc.5
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+## Requirements
 
-## Agentic Development
+For running the application you need:
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+- [PHP](https://www.php.net) 8.3+ (8.4 recommended)
+- [Composer](https://getcomposer.org)
+- [Node.js](https://nodejs.org) and npm
+- [PostgreSQL](https://www.postgresql.org) (or SQLite for the simplest local setup)
+
+Or only:
+
+- [Docker](https://www.docker.com) (Laravel Sail)
+
+You also need a reachable OpenAI-compatible chat API (for example LM Studio on your machine, optionally behind a tunnel).
+
+## How to run
+
+1. Execute command `git clone https://github.com/Ilvondir/llms-interface`.
+2. Copy `.env.example` to `.env` and set `APP_KEY` (or let setup generate it).
+3. Install and prepare the app:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer setup
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+   This installs PHP/JS dependencies, creates `.env` if missing, generates the key, runs migrations, and builds frontend assets.
 
-## Contributing
+4. Start the local stack:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+composer run dev
+```
 
-## Code of Conduct
+   This runs the PHP server, queue worker, log viewer, and Vite together.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+5. Open the app URL from `.env` (`APP_URL`, usually `http://localhost`).
+6. Point the sidebar API URL at your model endpoint (for example an ngrok URL ending with `/v1`), pick a model, and start chatting. Register an account if you want server-side conversation history; otherwise use guest mode.
 
-## Security Vulnerabilities
+You can also run this app on Docker containers using Laravel Sail (PostgreSQL included):
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+./vendor/bin/sail up -d
+./vendor/bin/sail artisan migrate
+./vendor/bin/sail npm install
+./vendor/bin/sail npm run dev
+```
 
-## License
+Optional demo user from the default seeder (`php artisan db:seed`):
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+| Account   | Email            | Password |
+|:---------:|:----------------:|:--------:|
+| Test User | test@example.com | password |
+
+## First Look
+
+Add screenshots under `public/firstlook/` and link them here, for example:
+
+```markdown
+![firstlook1](public/firstlook/firstlook1.png?raw=true)
+![firstlook2](public/firstlook/firstlook2.png?raw=true)
+![firstlook3](public/firstlook/firstlook3.png?raw=true)
+```
