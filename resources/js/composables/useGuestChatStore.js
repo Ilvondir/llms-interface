@@ -390,7 +390,17 @@ export function useGuestChatStore() {
 
     const setSystemPrompt = (systemPrompt) => {
         const conversation = ensureActiveConversation();
+        // Memory only while typing — persist on blur via persistSystemPrompt.
         conversation.systemPrompt = systemPrompt;
+    };
+
+    const persistSystemPrompt = () => {
+        const conversation = activeConversation.value;
+
+        if (! conversation) {
+            return;
+        }
+
         touch(conversation);
         persist();
     };
@@ -552,6 +562,7 @@ export function useGuestChatStore() {
         setMaxTokens,
         setTopP,
         setSystemPrompt,
+        persistSystemPrompt,
         setMcpServers,
         setEnabledMcpServerIds,
         appendMessage,

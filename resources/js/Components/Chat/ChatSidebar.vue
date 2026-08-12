@@ -52,7 +52,7 @@ const writeSidebarSections = (sections) => {
     window.localStorage.setItem(SIDEBAR_SECTIONS_STORAGE_KEY, JSON.stringify(sections));
 };
 
-defineProps({
+const props = defineProps({
     apiBaseUrl: {
         type: String,
         default: '',
@@ -118,7 +118,7 @@ defineProps({
     },
 });
 
-defineEmits([
+const emit = defineEmits([
     'update:apiBaseUrl',
     'update:model',
     'update:temperature',
@@ -129,6 +129,7 @@ defineEmits([
     'update:enabledMcpServerIds',
     'update:mcpToken',
     'commit-api-base-url',
+    'commit-system-prompt',
     'select-conversation',
     'create-conversation',
     'rename-conversation',
@@ -139,6 +140,38 @@ const storedSections = readSidebarSections();
 const parametersOpen = ref(storedSections.parametersOpen);
 const mcpOpen = ref(storedSections.mcpOpen);
 const chatsOpen = ref(storedSections.chatsOpen);
+
+// Local draft so typing spaces isn't fought by parent re-renders / persist sync.
+const systemPromptDraft = ref(props.systemPrompt ?? '');
+const systemPromptFocused = ref(false);
+
+watch(
+    () => props.systemPrompt,
+    (value) => {
+        if (! systemPromptFocused.value) {
+            systemPromptDraft.value = value ?? '';
+        }
+    },
+);
+
+watch(
+    () => props.activeConversationId,
+    () => {
+        systemPromptFocused.value = false;
+        systemPromptDraft.value = props.systemPrompt ?? '';
+    },
+);
+
+const onSystemPromptInput = (event) => {
+    systemPromptDraft.value = event.target.value;
+    emit('update:systemPrompt', systemPromptDraft.value);
+};
+
+const commitSystemPrompt = () => {
+    systemPromptFocused.value = false;
+    emit('update:systemPrompt', systemPromptDraft.value);
+    emit('commit-system-prompt', systemPromptDraft.value);
+};
 
 watch(
     [parametersOpen, mcpOpen, chatsOpen],
@@ -296,9 +329,11 @@ watch(
                     <textarea
                         rows="2"
                         class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5 resize-y"
-                        :value="systemPrompt"
+                        :value="systemPromptDraft"
                         placeholder="You are a helpful assistant."
-                        @input="$emit('update:systemPrompt', $event.target.value)"
+                        @focus="systemPromptFocused = true"
+                        @input="onSystemPromptInput"
+                        @blur="commitSystemPrompt"
                     />
                 </label>
             </div>

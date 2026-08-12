@@ -125,6 +125,10 @@ const systemPrompt = computed({
     set: (value) => store.value.setSystemPrompt(value),
 });
 
+const commitSystemPrompt = () => {
+    store.value.persistSystemPrompt?.();
+};
+
 const mcpServers = computed({
     get: () => store.value.state.settings.mcpServers ?? [],
     set: (value) => store.value.setMcpServers(value),
@@ -562,6 +566,7 @@ const sendMessage = async (payload) => {
                 :models-loading="modelsLoading"
                 :models-error="modelsError"
                 :conversations="conversations"
+                @commit-system-prompt="commitSystemPrompt"
                 :active-conversation-id="activeConversationId"
                 :can-create-conversation="canCreateConversation"
                 :is-guest="! isAuthenticated"

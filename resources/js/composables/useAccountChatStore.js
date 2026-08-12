@@ -229,6 +229,7 @@ export function useAccountChatStore(initialProps = {}) {
         expectedConversationId = null,
         syncMcpServers = false,
         syncEnabledMcpServerIds = true,
+        syncConversationDetails = true,
     } = {}) => {
         if (expectedConversationId != null && state.activeConversation?.id != expectedConversationId) {
             return;
@@ -271,15 +272,15 @@ export function useAccountChatStore(initialProps = {}) {
             state.activeConversation.createdAt = props.activeConversation.createdAt;
             state.activeConversation.updatedAt = props.activeConversation.updatedAt;
 
-            if (props.activeConversation.systemPrompt !== undefined) {
+            if (syncConversationDetails && props.activeConversation.systemPrompt !== undefined) {
                 state.activeConversation.systemPrompt = props.activeConversation.systemPrompt;
             }
 
-            if (props.activeConversation.model !== undefined) {
+            if (syncConversationDetails && props.activeConversation.model !== undefined) {
                 state.activeConversation.model = props.activeConversation.model;
             }
 
-            if (props.activeConversation.params) {
+            if (syncConversationDetails && props.activeConversation.params) {
                 state.activeConversation.params = {
                     ...defaultParams(),
                     ...props.activeConversation.params,
@@ -434,6 +435,7 @@ export function useAccountChatStore(initialProps = {}) {
                 expectedConversationId,
                 syncMcpServers: includeMcpServers,
                 syncEnabledMcpServerIds: false,
+                syncConversationDetails: false,
             });
 
             if (includeMcpServers && state.activeConversation?.id) {
@@ -624,6 +626,7 @@ export function useAccountChatStore(initialProps = {}) {
 
             syncAfterJsonMutation(props, {
                 expectedConversationId: state.activeConversation?.id ?? null,
+                syncConversationDetails: false,
             });
             lastPersistedApiBaseUrl = current;
         } catch (error) {
@@ -714,8 +717,14 @@ export function useAccountChatStore(initialProps = {}) {
             return;
         }
 
+        // Memory only while typing — persist on blur via persistSystemPrompt.
         conversation.systemPrompt = systemPrompt;
-        if (conversation.id) {
+    };
+
+    const persistSystemPrompt = async () => {
+        const conversation = state.activeConversation;
+
+        if (conversation?.id) {
             scheduleConversationPersist();
         }
     };
@@ -999,6 +1008,7 @@ export function useAccountChatStore(initialProps = {}) {
         setMaxTokens,
         setTopP,
         setSystemPrompt,
+        persistSystemPrompt,
         setMcpServers,
         setEnabledMcpServerIds,
         setMcpToken,
