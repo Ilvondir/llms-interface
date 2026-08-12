@@ -10,6 +10,8 @@ The application can attach images when the upstream model supports vision. It al
 
 Markdown replies are rendered on the frontend with Marked and sanitized with DOMPurify. Toast notifications use Vue Toastification.
 
+A live instance is available at [https://chat.michal-komsa.xyz](https://chat.michal-komsa.xyz). You can try the chat there with your own OpenAI-compatible API base URL (for example a tunnel to a local LM Studio `/v1` endpoint).
+
 ## Used Tools
 
 ### Backend
