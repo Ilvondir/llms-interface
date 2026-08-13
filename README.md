@@ -20,20 +20,13 @@ A live instance is available at [https://chat.michal-komsa.xyz](https://chat.mic
 - Inertia.js (Laravel) 2.0.24
 - Laravel Jetstream 5.5.3
 - Laravel Fortify 1.37.3
-- Laravel Sanctum 4.3.3
 - Laravel MCP 0.9.1
-- Ziggy 2.6.3
 - Sail 1.64.0
-- PHPUnit 12.5.33
 
 ### Frontend
-- HTML 5
-- CSS 3
-- JavaScript (ES modules)
 - Vue 3.5.40
 - Inertia.js (Vue) 2.3.27
 - Tailwind CSS 3.4.19
-- Vite 8.2.0
 - Marked 18.0.9
 - isomorphic-dompurify 3.19.0
 - Vue Toastification 2.0.0-rc.5
