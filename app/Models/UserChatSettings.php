@@ -18,6 +18,7 @@ class UserChatSettings extends Model
     protected $fillable = [
         'user_id',
         'api_base_url',
+        'api_key',
         'default_params',
         'mcp_servers',
         'active_conversation_id',
@@ -27,6 +28,7 @@ class UserChatSettings extends Model
      * @var list<string>
      */
     protected $hidden = [
+        'api_key',
         'mcp_servers',
     ];
 
@@ -43,6 +45,7 @@ class UserChatSettings extends Model
     protected function casts(): array
     {
         return [
+            'api_key' => 'encrypted',
             'default_params' => 'array',
             'mcp_servers' => 'encrypted:array',
         ];

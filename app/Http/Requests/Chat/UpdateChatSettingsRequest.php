@@ -21,6 +21,8 @@ class UpdateChatSettingsRequest extends FormRequest
     {
         return [
             'api_base_url' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'api_key' => ['sometimes', 'nullable', 'string', 'max:2048'],
+            'clear_api_key' => ['sometimes', 'boolean'],
             'default_params' => ['sometimes', 'array'],
             'default_params.temperature' => ['nullable', 'numeric', 'min:0', 'max:2'],
             'default_params.max_tokens' => ['nullable', 'integer', 'min:1'],

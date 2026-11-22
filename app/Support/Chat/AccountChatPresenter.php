@@ -115,6 +115,7 @@ class AccountChatPresenter
     {
         return [
             'apiBaseUrl' => $settings->api_base_url ?? '',
+            'hasApiKey' => trim((string) $settings->api_key) !== '',
             'defaultParams' => array_merge(self::defaultParams(), $settings->default_params ?? []),
             'mcpServers' => McpServerConfig::presentForClient(
                 is_array($settings->mcp_servers) ? $settings->mcp_servers : [],

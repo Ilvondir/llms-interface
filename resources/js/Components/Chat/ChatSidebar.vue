@@ -61,6 +61,10 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    hasApiKey: {
+        type: Boolean,
+        default: false,
+    },
     model: {
         type: String,
         default: '',
@@ -126,6 +130,7 @@ const emit = defineEmits([
     'update:apiBaseUrl',
     'update:apiKey',
     'commit-api-key',
+    'clear-api-key',
     'update:model',
     'update:temperature',
     'update:maxTokens',
@@ -208,19 +213,29 @@ watch(
             </label>
 
             <label class="block space-y-0.5">
-                <span class="font-medium text-gray-500 dark:text-gray-400">API key (optional)</span>
+                <span class="flex items-center justify-between font-medium text-gray-500 dark:text-gray-400">
+                    <span>API key (optional)</span>
+                    <button
+                        v-if="hasApiKey"
+                        type="button"
+                        class="text-[10px] font-normal text-red-600 dark:text-red-400 hover:underline"
+                        @click.prevent="$emit('clear-api-key')"
+                    >
+                        Remove saved key
+                    </button>
+                </span>
                 <input
                     type="password"
                     autocomplete="off"
                     class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5"
                     :value="apiKey"
-                    placeholder="sk-or-…"
+                    :placeholder="hasApiKey ? 'Saved — type to replace' : 'sk-or-…'"
                     @input="$emit('update:apiKey', $event.target.value)"
                     @keydown.enter.prevent="$emit('commit-api-key', $event.target.value)"
                     @blur="$emit('commit-api-key', $event.target.value)"
                 >
                 <span class="text-[10px] text-gray-500 dark:text-gray-400">
-                    Sent as Bearer token. Kept only in this browser tab.
+                    {{ isGuest ? 'Sent as Bearer token. Kept only in this browser tab.' : 'Sent as Bearer token. Saved encrypted on your account.' }}
                 </span>
             </label>
 

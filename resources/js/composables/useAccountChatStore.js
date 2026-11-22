@@ -12,6 +12,7 @@ const defaultParams = () => ({
 
 const emptySettings = () => ({
     apiBaseUrl: '',
+    hasApiKey: false,
     defaultParams: defaultParams(),
     mcpServers: [],
     activeConversationId: null,
@@ -153,6 +154,7 @@ export function useAccountChatStore(initialProps = {}) {
         if (chatSettings) {
             state.settings = {
                 apiBaseUrl: chatSettings.apiBaseUrl ?? '',
+                hasApiKey: Boolean(chatSettings.hasApiKey),
                 defaultParams: {
                     ...defaultParams(),
                     ...(chatSettings.defaultParams ?? {}),
@@ -248,6 +250,9 @@ export function useAccountChatStore(initialProps = {}) {
                 ...defaultParams(),
                 ...(props.chatSettings.defaultParams ?? state.settings.defaultParams),
             };
+            if (props.chatSettings.hasApiKey !== undefined) {
+                state.settings.hasApiKey = Boolean(props.chatSettings.hasApiKey);
+            }
             if (props.chatSettings.apiBaseUrl !== undefined) {
                 state.settings.apiBaseUrl = props.chatSettings.apiBaseUrl ?? state.settings.apiBaseUrl;
             }
@@ -638,6 +643,34 @@ export function useAccountChatStore(initialProps = {}) {
         }
     };
 
+    /** Write-only: the key is sent once, the server only reports `hasApiKey` back. */
+    const patchApiKey = async (body) => {
+        const expectedGeneration = mutationGeneration;
+
+        try {
+            const props = await jsonRequest('PATCH', route('chat-settings.update'), body);
+
+            if (expectedGeneration !== mutationGeneration) {
+                return;
+            }
+
+            syncAfterJsonMutation(props, {
+                expectedConversationId: state.activeConversation?.id ?? null,
+                syncConversationDetails: false,
+            });
+        } catch (error) {
+            if (expectedGeneration === mutationGeneration) {
+                notifyPersistError(error);
+            }
+
+            throw error;
+        }
+    };
+
+    const persistApiKey = (apiKey) => patchApiKey({ api_key: String(apiKey ?? '').trim() });
+
+    const clearApiKey = () => patchApiKey({ clear_api_key: true });
+
     const ensureLocalConversation = async () => {
         if (state.activeConversation) {
             return state.activeConversation;
@@ -1003,6 +1036,8 @@ export function useAccountChatStore(initialProps = {}) {
         deleteConversation,
         setApiBaseUrl,
         persistApiBaseUrl,
+        persistApiKey,
+        clearApiKey,
         setModel,
         setTemperature,
         setMaxTokens,

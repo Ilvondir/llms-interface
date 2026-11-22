@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Chat;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Chat\ChatModelsRequest;
 use App\Services\Llm\ChatCompletionProxy;
+use App\Support\Chat\ApiKeyResolver;
 use Illuminate\Http\JsonResponse;
 use RuntimeException;
 use Throwable;
@@ -14,12 +15,16 @@ class ChatModelsController extends Controller
     public function __invoke(
         ChatModelsRequest $request,
         ChatCompletionProxy $proxy,
+        ApiKeyResolver $apiKeys,
     ): JsonResponse {
         $validated = $request->validated();
 
         try {
             return response()->json(
-                $proxy->listModels($validated['api_base_url'], $validated['api_key'] ?? null),
+                $proxy->listModels(
+                    $validated['api_base_url'],
+                    $apiKeys->resolve($request->user(), $validated['api_key'] ?? null),
+                ),
             );
         } catch (RuntimeException $exception) {
             $status = $exception->getCode() >= 400 && $exception->getCode() < 600

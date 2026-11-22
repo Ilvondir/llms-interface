@@ -92,8 +92,11 @@ const readStoredApiKey = () => {
         return '';
     }
 };
-// Never stored in DB or localStorage; sessionStorage only (cleared when the tab closes).
-const apiKey = ref(readStoredApiKey());
+// Draft only. Guests keep it in sessionStorage (cleared with the tab); accounts save it
+// encrypted on the server, so the draft is dropped right after saving.
+const apiKey = ref(page.props.auth?.user ? '' : readStoredApiKey());
+
+const hasApiKey = computed(() => isAuthenticated.value && Boolean(store.value.state.settings.hasApiKey));
 
 watch(apiKey, (value) => {
     try {
@@ -107,14 +110,49 @@ watch(apiKey, (value) => {
     }
 });
 
-const commitApiKey = async (rawKey) => {
-    apiKey.value = String(rawKey ?? '').trim();
-
+const refreshModels = async () => {
     const url = apiBaseUrl.value?.trim();
 
     if (url) {
         await fetchModels(url, apiKey.value);
     }
+};
+
+const commitApiKey = async (rawKey) => {
+    const trimmed = String(rawKey ?? '').trim();
+
+    if (isAuthenticated.value) {
+        // Blank input keeps the saved key.
+        if (trimmed === '') {
+            return;
+        }
+
+        try {
+            await store.value.persistApiKey(trimmed);
+            apiKey.value = '';
+            toast.success('API key saved.');
+        } catch {
+            return;
+        }
+    } else {
+        apiKey.value = trimmed;
+    }
+
+    await refreshModels();
+};
+
+const clearApiKey = async () => {
+    apiKey.value = '';
+
+    if (isAuthenticated.value) {
+        try {
+            await store.value.clearApiKey();
+        } catch {
+            return;
+        }
+    }
+
+    await refreshModels();
 };
 
 const apiBaseUrl = computed({
@@ -589,6 +627,7 @@ const sendMessage = async (payload) => {
             <ChatSidebar
                 v-model:api-base-url="apiBaseUrl"
                 v-model:api-key="apiKey"
+                :has-api-key="hasApiKey"
                 v-model:model="model"
                 v-model:temperature="temperature"
                 v-model:max-tokens="maxTokens"
@@ -607,6 +646,7 @@ const sendMessage = async (payload) => {
                 :is-guest="! isAuthenticated"
                 @commit-api-base-url="commitApiBaseUrl"
                 @commit-api-key="commitApiKey"
+                @clear-api-key="clearApiKey"
                 @update:mcp-token="onMcpTokenUpdate"
                 @select-conversation="selectConversation"
                 @create-conversation="createConversation"

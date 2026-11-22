@@ -29,6 +29,7 @@ class ChatSettingsController extends Controller
         }
 
         $settings->fill([
+            'api_key' => $this->nextApiKey($validated, $settings->api_key),
             'api_base_url' => $validated['api_base_url'] ?? $settings->api_base_url,
             'default_params' => array_key_exists('default_params', $validated)
                 ? array_merge(AccountChatPresenter::defaultParams(), $validated['default_params'] ?? [])
@@ -59,5 +60,21 @@ class ChatSettingsController extends Controller
         }
 
         return Inertia::render('Chat/Index', $this->presenter->props($user, $active));
+    }
+
+    /**
+     * Blank input keeps the stored key (write-only); `clear_api_key` removes it.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function nextApiKey(array $validated, ?string $current): ?string
+    {
+        if (! empty($validated['clear_api_key'])) {
+            return null;
+        }
+
+        $incoming = trim((string) ($validated['api_key'] ?? ''));
+
+        return $incoming !== '' ? $incoming : $current;
     }
 }
