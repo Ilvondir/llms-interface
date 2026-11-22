@@ -113,6 +113,7 @@ export function useChatStream() {
 
     const streamChat = async ({
         apiBaseUrl,
+        apiKey = '',
         model,
         systemPrompt,
         messages,
@@ -164,6 +165,10 @@ export function useChatStream() {
             temperature,
             top_p: topP,
         };
+
+        if (String(apiKey ?? '').trim()) {
+            payload.api_key = String(apiKey).trim();
+        }
 
         if (maxTokens != null) {
             payload.max_tokens = maxTokens;

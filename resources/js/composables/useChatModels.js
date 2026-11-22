@@ -6,7 +6,7 @@ export function useChatModels() {
     const modelsLoading = ref(false);
     const modelsError = ref(null);
 
-    const fetchModels = async (apiBaseUrl) => {
+    const fetchModels = async (apiBaseUrl, apiKey = '') => {
         const trimmed = String(apiBaseUrl ?? '').trim();
 
         if (! trimmed) {
@@ -31,6 +31,7 @@ export function useChatModels() {
                 },
                 body: JSON.stringify({
                     api_base_url: trimmed,
+                    ...(String(apiKey ?? '').trim() ? { api_key: String(apiKey).trim() } : {}),
                 }),
             });
 

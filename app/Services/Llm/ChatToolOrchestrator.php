@@ -19,16 +19,16 @@ class ChatToolOrchestrator
      * @param  array<string, mixed>  $payload
      * @param  list<array{id: string, name?: string, url: string, token?: string|null}>  $servers
      */
-    public function stream(string $apiBaseUrl, array $payload, array $servers): StreamedResponse
+    public function stream(string $apiBaseUrl, array $payload, array $servers, ?string $apiKey = null): StreamedResponse
     {
         $timeout = $this->proxy->chatTimeoutSeconds();
 
-        return response()->stream(function () use ($apiBaseUrl, $payload, $servers, $timeout): void {
+        return response()->stream(function () use ($apiBaseUrl, $payload, $servers, $timeout, $apiKey): void {
             set_time_limit($timeout);
             ignore_user_abort(true);
 
             try {
-                $this->runToolLoop($apiBaseUrl, $payload, $servers);
+                $this->runToolLoop($apiBaseUrl, $payload, $servers, $apiKey);
             } catch (Throwable $exception) {
                 report($exception);
 
@@ -53,7 +53,7 @@ class ChatToolOrchestrator
      * @param  array<string, mixed>  $payload
      * @param  list<array{id: string, name?: string, url: string, token?: string|null}>  $servers
      */
-    private function runToolLoop(string $apiBaseUrl, array $payload, array $servers): void
+    private function runToolLoop(string $apiBaseUrl, array $payload, array $servers, ?string $apiKey = null): void
     {
         $listed = $this->gateway->listTools($servers);
         $tools = $listed['tools'];
@@ -78,7 +78,7 @@ class ChatToolOrchestrator
                 'message' => 'MCP tools unavailable; continuing without tools. '.$detail,
             ]);
 
-            $this->forwardCompletionEvents($apiBaseUrl, $payload);
+            $this->forwardCompletionEvents($apiBaseUrl, $payload, $apiKey);
             $this->emitDone();
 
             return;
@@ -98,7 +98,7 @@ class ChatToolOrchestrator
             $finishReason = null;
             $earlyToolNotices = [];
 
-            foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $roundPayload) as $event) {
+            foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $roundPayload, $apiKey) as $event) {
                 $choice = $event['choices'][0] ?? null;
                 $delta = is_array($choice) ? ($choice['delta'] ?? null) : null;
 
@@ -230,9 +230,9 @@ class ChatToolOrchestrator
     /**
      * @param  array<string, mixed>  $payload
      */
-    private function forwardCompletionEvents(string $apiBaseUrl, array $payload): void
+    private function forwardCompletionEvents(string $apiBaseUrl, array $payload, ?string $apiKey = null): void
     {
-        foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $payload) as $event) {
+        foreach ($this->proxy->eachSseJsonEvent($apiBaseUrl, $payload, $apiKey) as $event) {
             $this->emitEvent($event);
         }
     }

@@ -63,10 +63,10 @@ class ChatStreamController extends Controller
 
         try {
             if ($servers === []) {
-                return $proxy->streamChatCompletions($validated['api_base_url'], $payload);
+                return $proxy->streamChatCompletions($validated['api_base_url'], $payload, $validated['api_key'] ?? null);
             }
 
-            return $orchestrator->stream($validated['api_base_url'], $payload, $servers);
+            return $orchestrator->stream($validated['api_base_url'], $payload, $servers, $validated['api_key'] ?? null);
         } catch (RuntimeException $exception) {
             $status = $exception->getCode() >= 400 && $exception->getCode() < 600
                 ? (int) $exception->getCode()

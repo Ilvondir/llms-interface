@@ -24,6 +24,7 @@ class ChatStreamRequest extends FormRequest
     {
         return [
             'api_base_url' => ['required', 'url', 'max:2048'],
+            'api_key' => ['nullable', 'string', 'max:2048'],
             'model' => ['required', 'string', 'max:255'],
             'system_prompt' => ['nullable', 'string', 'max:100000'],
             'messages' => ['required', 'array', 'min:1', 'max:'.ChatContentLimits::MAX_MESSAGES_PER_REQUEST],

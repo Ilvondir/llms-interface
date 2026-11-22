@@ -18,6 +18,7 @@ class ChatModelsRequest extends FormRequest
     {
         return [
             'api_base_url' => ['required', 'url', 'max:2048'],
+            'api_key' => ['nullable', 'string', 'max:2048'],
         ];
     }
 }

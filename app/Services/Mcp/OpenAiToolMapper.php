@@ -52,12 +52,7 @@ final class OpenAiToolMapper
             ? $inputSchema
             : ['type' => 'object', 'properties' => new \stdClass];
 
-        // OpenAI expects object; empty properties {} may serialize as [] in JSON — use stdClass when empty properties.
-        if (($parameters['type'] ?? null) === 'object'
-            && array_key_exists('properties', $parameters)
-            && $parameters['properties'] === []) {
-            $parameters['properties'] = new \stdClass;
-        }
+        $parameters = $this->normalizeSchema($parameters);
 
         return [
             'type' => 'function',
@@ -67,5 +62,55 @@ final class OpenAiToolMapper
                 'parameters' => $parameters,
             ],
         ];
+    }
+
+    /**
+     * PHP decodes JSON `{}` to `[]`, which re-encodes as an invalid schema. Restore empty objects
+     * in schema positions that must be objects, leaving enum/const/default/required untouched.
+     *
+     * @param  array<mixed>  $schema
+     * @return array<mixed>|\stdClass
+     */
+    private function normalizeSchema(array $schema): array|\stdClass
+    {
+        if ($schema === []) {
+            return new \stdClass;
+        }
+
+        if (array_is_list($schema)) {
+            return array_map(
+                fn (mixed $item): mixed => is_array($item) ? $this->normalizeSchema($item) : $item,
+                $schema,
+            );
+        }
+
+        $mapKeys = ['properties', 'patternProperties', '$defs', 'definitions', 'dependentSchemas'];
+        $schemaKeys = ['additionalProperties', 'items', 'additionalItems', 'contains', 'propertyNames',
+            'unevaluatedProperties', 'unevaluatedItems', 'not', 'if', 'then', 'else'];
+        $schemaListKeys = ['allOf', 'anyOf', 'oneOf', 'prefixItems'];
+
+        foreach ($schema as $key => $value) {
+            if (! is_array($value)) {
+                continue;
+            }
+
+            if (in_array($key, $mapKeys, true)) {
+                $schema[$key] = $value === []
+                    ? new \stdClass
+                    : array_map(
+                        fn (mixed $child): mixed => is_array($child) ? $this->normalizeSchema($child) : $child,
+                        $value,
+                    );
+            } elseif (in_array($key, $schemaKeys, true)) {
+                $schema[$key] = $this->normalizeSchema($value);
+            } elseif (in_array($key, $schemaListKeys, true)) {
+                $schema[$key] = array_map(
+                    fn (mixed $child): mixed => is_array($child) ? $this->normalizeSchema($child) : $child,
+                    $value,
+                );
+            }
+        }
+
+        return $schema;
     }
 }

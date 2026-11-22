@@ -19,7 +19,7 @@ class ChatModelsController extends Controller
 
         try {
             return response()->json(
-                $proxy->listModels($validated['api_base_url']),
+                $proxy->listModels($validated['api_base_url'], $validated['api_key'] ?? null),
             );
         } catch (RuntimeException $exception) {
             $status = $exception->getCode() >= 400 && $exception->getCode() < 600

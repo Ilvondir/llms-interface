@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import { useToast } from 'vue-toastification';
 import ChatLayout from '@/Layouts/ChatLayout.vue';
@@ -83,6 +83,39 @@ const { modelOptions, modelsLoading, modelsError, fetchModels } = useChatModels(
 const { isStreaming, streamChat, cancel } = useChatStream();
 const streamingMessageId = ref(null);
 const thinkingMessageId = ref(null);
+
+const API_KEY_STORAGE = 'llms.apiKey';
+const readStoredApiKey = () => {
+    try {
+        return window.sessionStorage.getItem(API_KEY_STORAGE) ?? '';
+    } catch {
+        return '';
+    }
+};
+// Never stored in DB or localStorage; sessionStorage only (cleared when the tab closes).
+const apiKey = ref(readStoredApiKey());
+
+watch(apiKey, (value) => {
+    try {
+        if (value) {
+            window.sessionStorage.setItem(API_KEY_STORAGE, value);
+        } else {
+            window.sessionStorage.removeItem(API_KEY_STORAGE);
+        }
+    } catch {
+        // storage unavailable
+    }
+});
+
+const commitApiKey = async (rawKey) => {
+    apiKey.value = String(rawKey ?? '').trim();
+
+    const url = apiBaseUrl.value?.trim();
+
+    if (url) {
+        await fetchModels(url, apiKey.value);
+    }
+};
 
 const apiBaseUrl = computed({
     get: () => store.value.state.settings.apiBaseUrl,
@@ -214,7 +247,7 @@ const commitApiBaseUrl = async (rawUrl, { persist = true } = {}) => {
         await store.value.persistApiBaseUrl();
     }
 
-    const ids = await fetchModels(trimmed);
+    const ids = await fetchModels(trimmed, apiKey.value);
 
     if (ids.length > 0 && ! model.value) {
         await store.value.setModel(ids[0]);
@@ -428,6 +461,7 @@ const sendMessage = async (payload) => {
     try {
         await streamChat({
             apiBaseUrl: apiBaseUrl.value.trim(),
+            apiKey: apiKey.value,
             model: requestModel,
             systemPrompt: systemPrompt.value,
             messages: outboundMessages,
@@ -554,6 +588,7 @@ const sendMessage = async (payload) => {
         <template #sidebar>
             <ChatSidebar
                 v-model:api-base-url="apiBaseUrl"
+                v-model:api-key="apiKey"
                 v-model:model="model"
                 v-model:temperature="temperature"
                 v-model:max-tokens="maxTokens"
@@ -571,6 +606,7 @@ const sendMessage = async (payload) => {
                 :can-create-conversation="canCreateConversation"
                 :is-guest="! isAuthenticated"
                 @commit-api-base-url="commitApiBaseUrl"
+                @commit-api-key="commitApiKey"
                 @update:mcp-token="onMcpTokenUpdate"
                 @select-conversation="selectConversation"
                 @create-conversation="createConversation"

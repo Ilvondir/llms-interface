@@ -3,6 +3,7 @@
 namespace App\Services\Llm;
 
 use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -26,7 +27,7 @@ class ChatCompletionProxy
     /**
      * @param  array<string, mixed>  $payload
      */
-    public function streamChatCompletions(string $apiBaseUrl, array $payload): StreamedResponse
+    public function streamChatCompletions(string $apiBaseUrl, array $payload, ?string $apiKey = null): StreamedResponse
     {
         $apiRoot = $this->normalizeApiRoot($apiBaseUrl);
         $url = $apiRoot.'/chat/completions';
@@ -38,7 +39,7 @@ class ChatCompletionProxy
         ignore_user_abort(true);
         ini_set('default_socket_timeout', (string) $timeout);
 
-        $upstream = Http::accept('text/event-stream')
+        $upstream = $this->withApiKey(Http::accept('text/event-stream'), $apiKey)
             ->asJson()
             ->timeout($timeout)
             ->connectTimeout($connectTimeout)
@@ -93,7 +94,7 @@ class ChatCompletionProxy
      * @param  array<string, mixed>  $payload
      * @return \Generator<int, array<string, mixed>>
      */
-    public function eachSseJsonEvent(string $apiBaseUrl, array $payload): \Generator
+    public function eachSseJsonEvent(string $apiBaseUrl, array $payload, ?string $apiKey = null): \Generator
     {
         $apiRoot = $this->normalizeApiRoot($apiBaseUrl);
         $url = $apiRoot.'/chat/completions';
@@ -104,7 +105,7 @@ class ChatCompletionProxy
         ignore_user_abort(true);
         ini_set('default_socket_timeout', (string) $timeout);
 
-        $upstream = Http::accept('text/event-stream')
+        $upstream = $this->withApiKey(Http::accept('text/event-stream'), $apiKey)
             ->asJson()
             ->timeout($timeout)
             ->connectTimeout($connectTimeout)
@@ -190,13 +191,13 @@ class ChatCompletionProxy
     /**
      * @return array<string, mixed>
      */
-    public function listModels(string $apiBaseUrl): array
+    public function listModels(string $apiBaseUrl, ?string $apiKey = null): array
     {
         $apiRoot = $this->normalizeApiRoot($apiBaseUrl);
         $url = $apiRoot.'/models';
 
         try {
-            $response = Http::acceptJson()
+            $response = $this->withApiKey(Http::acceptJson(), $apiKey)
                 ->timeout((int) config('llms.models_timeout', 30))
                 ->connectTimeout((int) config('llms.connect_timeout', 10))
                 ->get($url)
@@ -218,6 +219,13 @@ class ChatCompletionProxy
         $json = $response->json() ?? [];
 
         return $json;
+    }
+
+    private function withApiKey(PendingRequest $request, ?string $apiKey): PendingRequest
+    {
+        $apiKey = trim((string) $apiKey);
+
+        return $apiKey === '' ? $request : $request->withToken($apiKey);
     }
 
     private function safeBodyPreview(Response $response): string

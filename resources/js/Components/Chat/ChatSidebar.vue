@@ -57,6 +57,10 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    apiKey: {
+        type: String,
+        default: '',
+    },
     model: {
         type: String,
         default: '',
@@ -120,6 +124,8 @@ const props = defineProps({
 
 const emit = defineEmits([
     'update:apiBaseUrl',
+    'update:apiKey',
+    'commit-api-key',
     'update:model',
     'update:temperature',
     'update:maxTokens',
@@ -199,6 +205,23 @@ watch(
                     @keydown.enter.prevent="$emit('commit-api-base-url', $event.target.value)"
                     @blur="$emit('commit-api-base-url', $event.target.value)"
                 >
+            </label>
+
+            <label class="block space-y-0.5">
+                <span class="font-medium text-gray-500 dark:text-gray-400">API key (optional)</span>
+                <input
+                    type="password"
+                    autocomplete="off"
+                    class="w-full rounded border-gray-300 dark:border-gray-700 dark:bg-gray-950 shadow-sm text-xs py-1.5"
+                    :value="apiKey"
+                    placeholder="sk-or-…"
+                    @input="$emit('update:apiKey', $event.target.value)"
+                    @keydown.enter.prevent="$emit('commit-api-key', $event.target.value)"
+                    @blur="$emit('commit-api-key', $event.target.value)"
+                >
+                <span class="text-[10px] text-gray-500 dark:text-gray-400">
+                    Sent as Bearer token. Kept only in this browser tab.
+                </span>
             </label>
 
             <label class="block space-y-0.5">
